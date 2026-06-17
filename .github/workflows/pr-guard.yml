@@ -1,0 +1,15 @@
+name: PR Guard
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-conflict:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Check for merge conflicts
+      run: |
+        echo "Checking merge conflicts..."
+        # Add conflict check logic here
