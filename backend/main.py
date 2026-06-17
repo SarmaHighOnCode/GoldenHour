@@ -1,65 +1,133 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List, Optional
-from middleware import add_cors_middleware
+"""GoldenHour API — FastAPI application entrypoint.
 
-app = FastAPI(title="GoldenHour API")
+Thin HTTP layer: each route validates input with a schema, calls one service,
+and returns a schema. All business logic lives in ``services/``; all data access
+lives in ``store.py``. Endpoint shapes match ``API_CONTRACT.md`` exactly.
+"""
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
+
+from config import settings
+from middleware import add_cors_middleware
+from schemas import (
+    DonorRegisterRequest,
+    DonorRegisterResponse,
+    EmergencyRequest,
+    EmergencyResponse,
+    EmergencyStatusResponse,
+    HealthResponse,
+    HospitalConfirmRequest,
+    HospitalConfirmResponse,
+    SmsInboundRequest,
+    SmsInboundResponse,
+)
+from store import get_store
+
+from services import confirm_service, donor_service, emergency_service, sms_service
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("goldenhour")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    get_store()  # warm the store (seed in-memory, or connect Supabase)
+    logger.info("GoldenHour API ready - %s", settings.summary())
+    yield
+
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.version,
+    description=(
+        "Emergency hospital routing + replacement-blood donor alerting. "
+        "One GPS-triggered request finds a hospital with the right department "
+        "and a free bed, and alerts nearby compatible donors."
+    ),
+    lifespan=lifespan,
+)
 add_cors_middleware(app)
 
-class EmergencyRequest(BaseModel):
-    lat: float
-    lng: float
-    emergency_type: str
-    blood_group: str
 
-class HospitalConfirmRequest(BaseModel):
-    accepted: bool
+@app.get("/", tags=["meta"])
+async def root():
+    return {"service": settings.app_name, "version": settings.version, "docs": "/docs"}
 
-class DonorRegisterRequest(BaseModel):
-    name: str
-    phone: str
-    blood_group: str
-    lat: float
-    lng: float
-    last_donated: Optional[str] = None
 
-class SmsInboundRequest(BaseModel):
-    from_number: str
-    body: str
-
-@app.post("/emergency")
-async def trigger_emergency(request: EmergencyRequest):
-    return {
-        "request_id": "abc123",
-        "hospitals": [],
-        "donors_alerted": 0
-    }
-
-@app.get("/emergency/{request_id}/status")
-async def get_emergency_status(request_id: str):
-    return {
-        "request_id": request_id,
-        "hospitals": [],
-        "donors_alerted": 0,
-        "donors_responded": 0
-    }
-
-@app.post("/confirm/{token}")
-async def confirm_hospital(token: str, request: HospitalConfirmRequest):
-    return {
-        "ok": True,
-        "hospital_name": "Test Hospital",
-        "already_confirmed": False
-    }
-
-@app.post("/donor/register")
-async def register_donor(request: DonorRegisterRequest):
-    return {"ok": True, "donor_id": "d123"}
-
-@app.post("/sms/inbound")
-async def handle_sms_inbound(request: SmsInboundRequest):
-    return {"reply": "Nearest hospitals: ..."}
-
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse, tags=["meta"])
 async def health_check():
-    return {"status": "ok", "version": "0.1.0"}
+    mode = "supabase" if settings.use_supabase else "in-memory"
+    return HealthResponse(status="ok", version=settings.version, mode=mode)
+
+
+@app.post("/emergency", response_model=EmergencyResponse, tags=["emergency"])
+async def trigger_emergency(request: EmergencyRequest):
+    """Trigger an emergency: rank hospitals, alert donors, send confirmations."""
+    store = get_store()
+    return await emergency_service.trigger_emergency(
+        store,
+        lat=request.lat,
+        lng=request.lng,
+        emergency_type=request.emergency_type,
+        blood_group=request.blood_group,
+    )
+
+
+@app.get(
+    "/emergency/{request_id}/status",
+    response_model=EmergencyStatusResponse,
+    tags=["emergency"],
+)
+async def get_emergency_status(request_id: str):
+    """Poll/subscribe target: live hospital replies + donor responses."""
+    try:
+        return emergency_service.get_status(get_store(), request_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Unknown request_id")
+
+
+@app.post(
+    "/confirm/{token}",
+    response_model=HospitalConfirmResponse,
+    tags=["confirmation"],
+)
+async def confirm_hospital(token: str, request: HospitalConfirmRequest):
+    """A hospital contact taps Accept (true) or Not Available (false)."""
+    try:
+        return confirm_service.handle_confirmation(
+            get_store(), token, request.accepted
+        )
+    except confirm_service.ConfirmationNotFound:
+        raise HTTPException(status_code=404, detail="Unknown confirmation token")
+
+
+@app.post("/donor/register", response_model=DonorRegisterResponse, tags=["donors"])
+async def register_donor(request: DonorRegisterRequest):
+    """Register a replacement-blood donor."""
+    donor_id = donor_service.register_donor(
+        get_store(),
+        name=request.name,
+        phone=request.phone,
+        blood_group=request.blood_group,
+        lat=request.lat,
+        lng=request.lng,
+        last_donated=request.last_donated,
+    )
+    return DonorRegisterResponse(ok=True, donor_id=donor_id)
+
+
+@app.post("/sms/inbound", response_model=SmsInboundResponse, tags=["sms"])
+async def handle_sms_inbound(request: SmsInboundRequest):
+    """Feature-phone path (stretch): parse an inbound SMS and reply."""
+    reply = sms_service.handle_inbound(
+        get_store(), from_number=request.from_number, body=request.body
+    )
+    return SmsInboundResponse(reply=reply)
+
+
+@app.get("/dev/links", tags=["meta"])
+async def dev_links():
+    """Demo helper: the confirmation links recently 'sent' to hospitals."""
+    return {"links": sms_service.recent_links}

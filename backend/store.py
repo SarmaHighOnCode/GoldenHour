@@ -1,0 +1,420 @@
+"""Data layer.
+
+Two interchangeable stores implement the same method surface:
+
+* ``InMemoryStore`` — seeded with Jaipur hospitals + donors, haversine radius
+  queries. The default; runs with zero external services (demo mode, CI).
+* ``SupabaseStore`` — PostgreSQL + PostGIS via Supabase. Used automatically when
+  ``SUPABASE_URL`` / ``SUPABASE_ANON_KEY`` are set; falls back to in-memory if the
+  client can't be created, so the API never hard-fails at boot.
+
+``get_store()`` picks the right one. Because the four logical tables
+(``hospitals``, ``blood_donors``, ``emergency_requests``,
+``confirmation_requests``) and every query method are identical across both,
+the service layer is completely unaware of which store is live.
+"""
+from __future__ import annotations
+
+import itertools
+import logging
+import uuid
+from datetime import date, datetime, timezone
+from typing import Dict, List, Optional
+
+import seed_data
+from config import settings
+from geo import haversine_km, haversine_meters
+
+logger = logging.getLogger("goldenhour.store")
+
+
+def _parse_date(value: Optional[str]) -> Optional[date]:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _parse_dt(value) -> datetime:
+    """Coerce a Supabase timestamptz string (or datetime) to an aware datetime."""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    return _now()
+
+
+# ===========================================================================
+# In-memory store (demo / CI)
+# ===========================================================================
+class InMemoryStore:
+    backend = "in-memory"
+
+    def __init__(self) -> None:
+        self.hospitals: List[Dict] = seed_data.hospitals()
+        self.donors: List[Dict] = seed_data.donors()
+        self.emergencies: Dict[str, Dict] = {}
+        self.confirmations: Dict[str, Dict] = {}  # keyed by token
+        self._emergency_seq = itertools.count(1)
+        self._donor_seq = itertools.count(len(self.donors) + 1)
+
+    # --- Hospitals ---------------------------------------------------------
+    def hospitals_with_distance(self, lat: float, lng: float) -> List[Dict]:
+        out = []
+        for h in self.hospitals:
+            enriched = dict(h)
+            enriched["distance_km"] = round(haversine_km(lat, lng, h["lat"], h["lng"]), 2)
+            out.append(enriched)
+        return out
+
+    # --- Donors ------------------------------------------------------------
+    def compatible_donors_nearby(
+        self,
+        lat: float,
+        lng: float,
+        compatible_groups: List[str],
+        radius_meters: float,
+        cooldown_days: int,
+        today: Optional[date] = None,
+    ) -> List[Dict]:
+        today = today or date.today()
+        groups = set(compatible_groups)
+        result: List[Dict] = []
+        for d in self.donors:
+            if d["blood_group"] not in groups:
+                continue
+            if not d.get("available", True):
+                continue
+            last = _parse_date(d.get("last_donated"))
+            if last is not None and (today - last).days < cooldown_days:
+                continue
+            dist = haversine_meters(lat, lng, d["lat"], d["lng"])
+            if dist > radius_meters:
+                continue
+            enriched = dict(d)
+            enriched["distance_m"] = round(dist, 1)
+            result.append(enriched)
+        result.sort(key=lambda d: d["distance_m"])
+        return result
+
+    def add_donor(self, name, phone, blood_group, lat, lng, last_donated) -> str:
+        donor_id = f"d{next(self._donor_seq)}"
+        self.donors.append(
+            {
+                "id": donor_id,
+                "name": name,
+                "phone": phone,
+                "blood_group": blood_group,
+                "lat": lat,
+                "lng": lng,
+                "last_donated": last_donated,
+                "available": True,
+            }
+        )
+        return donor_id
+
+    # --- Emergencies -------------------------------------------------------
+    def create_emergency(
+        self, lat, lng, emergency_type, blood_group, hospital_cards, donors_alerted
+    ) -> Dict:
+        request_id = f"req{next(self._emergency_seq):04d}"
+        record = {
+            "id": request_id,
+            "lat": lat,
+            "lng": lng,
+            "emergency_type": emergency_type,
+            "blood_group": blood_group,
+            "status": "pending",
+            "created_at": _now(),
+            "hospitals": hospital_cards,
+            "donors_alerted": donors_alerted,
+            "donors_responded": 0,
+        }
+        self.emergencies[request_id] = record
+        return record
+
+    def get_emergency(self, request_id: str) -> Optional[Dict]:
+        return self.emergencies.get(request_id)
+
+    # --- Confirmation requests --------------------------------------------
+    def create_confirmation(self, emergency_id, hospital_id, hospital_name, token) -> Dict:
+        record = {
+            "token": token,
+            "emergency_id": emergency_id,
+            "hospital_id": hospital_id,
+            "hospital_name": hospital_name,
+            "sent_at": _now(),
+            "replied_at": None,
+            "confirmed": None,
+        }
+        self.confirmations[token] = record
+        return record
+
+    def get_confirmation(self, token: str) -> Optional[Dict]:
+        return self.confirmations.get(token)
+
+    def confirmations_for_emergency(self, emergency_id: str) -> List[Dict]:
+        return [c for c in self.confirmations.values() if c["emergency_id"] == emergency_id]
+
+    def emergency_is_taken(self, emergency_id: str) -> bool:
+        return any(
+            c["confirmed"] is True for c in self.confirmations_for_emergency(emergency_id)
+        )
+
+    def record_reply(self, token: str, accepted: bool) -> None:
+        """Persist a hospital's Accept/Decline and update the emergency snapshot."""
+        conf = self.confirmations.get(token)
+        if conf is None:
+            return
+        conf["confirmed"] = accepted
+        conf["replied_at"] = _now()
+        emergency = self.emergencies.get(conf["emergency_id"])
+        if emergency is not None:
+            status = "confirmed" if accepted else "declined"
+            for card in emergency["hospitals"]:
+                if card["hospital_id"] == conf["hospital_id"]:
+                    card["status"] = status
+            if accepted:
+                emergency["status"] = "confirmed"
+
+
+# ===========================================================================
+# Supabase store (production)
+# ===========================================================================
+class SupabaseStore:
+    backend = "supabase"
+
+    def __init__(self, client) -> None:
+        self.client = client
+        self._hospitals_cache: Optional[List[Dict]] = None
+
+    # --- Hospitals ---------------------------------------------------------
+    @property
+    def hospitals(self) -> List[Dict]:
+        if self._hospitals_cache is None:
+            res = self.client.table("hospitals").select("*").execute()
+            self._hospitals_cache = res.data or []
+        return self._hospitals_cache
+
+    def hospitals_with_distance(self, lat: float, lng: float) -> List[Dict]:
+        out = []
+        for h in self.hospitals:
+            enriched = dict(h)
+            enriched["distance_km"] = round(haversine_km(lat, lng, h["lat"], h["lng"]), 2)
+            out.append(enriched)
+        return out
+
+    # --- Donors (PostGIS radius via RPC) -----------------------------------
+    def compatible_donors_nearby(
+        self,
+        lat: float,
+        lng: float,
+        compatible_groups: List[str],
+        radius_meters: float,
+        cooldown_days: int,
+        today: Optional[date] = None,
+    ) -> List[Dict]:
+        res = self.client.rpc(
+            "donors_nearby",
+            {
+                "p_lat": lat,
+                "p_lng": lng,
+                "p_groups": compatible_groups,
+                "p_radius_m": radius_meters,
+                "p_cooldown_days": cooldown_days,
+            },
+        ).execute()
+        donors = res.data or []
+        for d in donors:
+            d["distance_m"] = round(haversine_meters(lat, lng, d["lat"], d["lng"]), 1)
+        return donors
+
+    def add_donor(self, name, phone, blood_group, lat, lng, last_donated) -> str:
+        donor_id = f"d{uuid.uuid4().hex[:8]}"
+        self.client.table("blood_donors").insert(
+            {
+                "id": donor_id,
+                "name": name,
+                "phone": phone,
+                "blood_group": blood_group,
+                "lat": lat,
+                "lng": lng,
+                "last_donated": last_donated,
+                "available": True,
+            }
+        ).execute()
+        return donor_id
+
+    # --- Emergencies -------------------------------------------------------
+    def create_emergency(
+        self, lat, lng, emergency_type, blood_group, hospital_cards, donors_alerted
+    ) -> Dict:
+        request_id = f"req{uuid.uuid4().hex[:8]}"
+        created_at = _now()
+        self.client.table("emergency_requests").insert(
+            {
+                "id": request_id,
+                "emergency_type": emergency_type,
+                "blood_group_needed": blood_group,
+                "lat": lat,
+                "lng": lng,
+                "status": "pending",
+                "donors_alerted": donors_alerted,
+                "donors_responded": 0,
+                "hospitals": hospital_cards,
+            }
+        ).execute()
+        return {
+            "id": request_id,
+            "lat": lat,
+            "lng": lng,
+            "emergency_type": emergency_type,
+            "blood_group": blood_group,
+            "status": "pending",
+            "created_at": created_at,
+            "hospitals": hospital_cards,
+            "donors_alerted": donors_alerted,
+            "donors_responded": 0,
+        }
+
+    def get_emergency(self, request_id: str) -> Optional[Dict]:
+        res = (
+            self.client.table("emergency_requests")
+            .select("*")
+            .eq("id", request_id)
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return None
+        row = res.data[0]
+        return {
+            "id": row["id"],
+            "lat": row["lat"],
+            "lng": row["lng"],
+            "emergency_type": row["emergency_type"],
+            "blood_group": row["blood_group_needed"],
+            "status": row["status"],
+            "created_at": _parse_dt(row.get("created_at")),
+            "hospitals": row.get("hospitals") or [],
+            "donors_alerted": row.get("donors_alerted", 0),
+            "donors_responded": row.get("donors_responded", 0),
+        }
+
+    # --- Confirmation requests --------------------------------------------
+    def create_confirmation(self, emergency_id, hospital_id, hospital_name, token) -> Dict:
+        record = {
+            "token": token,
+            "emergency_id": emergency_id,
+            "hospital_id": hospital_id,
+            "hospital_name": hospital_name,
+            "confirmed": None,
+        }
+        self.client.table("confirmation_requests").insert(record).execute()
+        record["sent_at"] = _now()
+        record["replied_at"] = None
+        return record
+
+    def get_confirmation(self, token: str) -> Optional[Dict]:
+        res = (
+            self.client.table("confirmation_requests")
+            .select("*")
+            .eq("token", token)
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return None
+        row = res.data[0]
+        return {
+            "token": row["token"],
+            "emergency_id": row["emergency_id"],
+            "hospital_id": row["hospital_id"],
+            "hospital_name": row.get("hospital_name", ""),
+            "sent_at": _parse_dt(row.get("sent_at")),
+            "replied_at": row.get("replied_at"),
+            "confirmed": row.get("confirmed"),
+        }
+
+    def confirmations_for_emergency(self, emergency_id: str) -> List[Dict]:
+        res = (
+            self.client.table("confirmation_requests")
+            .select("*")
+            .eq("emergency_id", emergency_id)
+            .execute()
+        )
+        return res.data or []
+
+    def emergency_is_taken(self, emergency_id: str) -> bool:
+        res = (
+            self.client.table("confirmation_requests")
+            .select("token")
+            .eq("emergency_id", emergency_id)
+            .eq("confirmed", True)
+            .limit(1)
+            .execute()
+        )
+        return bool(res.data)
+
+    def record_reply(self, token: str, accepted: bool) -> None:
+        self.client.table("confirmation_requests").update(
+            {"confirmed": accepted, "replied_at": _now().isoformat()}
+        ).eq("token", token).execute()
+
+        conf = self.get_confirmation(token)
+        if conf is None:
+            return
+        emergency = self.get_emergency(conf["emergency_id"])
+        if emergency is None:
+            return
+        status = "confirmed" if accepted else "declined"
+        cards = emergency["hospitals"]
+        for card in cards:
+            if card["hospital_id"] == conf["hospital_id"]:
+                card["status"] = status
+        update = {"hospitals": cards}
+        if accepted:
+            update["status"] = "confirmed"
+        self.client.table("emergency_requests").update(update).eq(
+            "id", conf["emergency_id"]
+        ).execute()
+
+
+# ===========================================================================
+# Store selection
+# ===========================================================================
+_store = None
+
+
+def get_store():
+    """Process-wide singleton store, chosen from configuration.
+
+    Supabase when configured and reachable; in-memory otherwise. A Supabase
+    init failure logs and falls back to in-memory rather than breaking boot.
+    """
+    global _store
+    if _store is not None:
+        return _store
+
+    if settings.use_supabase:
+        try:
+            from supabase import create_client
+
+            client = create_client(settings.supabase_url, settings.supabase_key)
+            _store = SupabaseStore(client)
+            logger.info("Data layer: Supabase (PostGIS)")
+        except Exception:
+            logger.exception("Supabase init failed — falling back to in-memory store")
+            _store = InMemoryStore()
+    else:
+        _store = InMemoryStore()
+    return _store

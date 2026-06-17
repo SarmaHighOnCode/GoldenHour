@@ -9,7 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Check for merge conflicts
+    - name: Fail if leftover conflict markers are present
       run: |
-        echo "Checking merge conflicts..."
-        # Add conflict check logic here
+        echo "Scanning for unresolved merge conflict markers..."
+        if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- . ':(exclude).github/**'; then
+          echo "::error::Unresolved merge conflict markers found. Resolve them before merging."
+          exit 1
+        fi
+        echo "No conflict markers found."
