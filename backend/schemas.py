@@ -37,6 +37,9 @@ class EmergencyResponse(BaseModel):
     request_id: str
     hospitals: List[HospitalCard]
     donors_alerted: int
+    # True when the needed group is Rh-negative (scarce supply) — the UI warns
+    # that compatible donors may be few and rare-group banks should be contacted.
+    rare_group: bool = False
 
 
 # --- GET /emergency/{request_id}/status ------------------------------------
@@ -52,6 +55,9 @@ class EmergencyStatusResponse(BaseModel):
     hospitals: List[HospitalStatusCard]
     donors_alerted: int
     donors_responded: int
+    # True after the no-confirmation window elapses with nothing confirmed — cue
+    # for the UI to surface the nearest-hospitals 1-tap-call fallback.
+    unconfirmed_fallback: bool = False
 
 
 # --- POST /confirm/{token} -------------------------------------------------
@@ -73,6 +79,9 @@ class DonorRegisterRequest(BaseModel):
     lat: float
     lng: float
     last_donated: Optional[str] = None  # "YYYY-MM-DD" or null
+    # Optional. Drives the post-donation cooldown: 120 days for "female",
+    # 90 days otherwise. Omitting it defaults to the 90-day window.
+    sex: Optional[Literal["male", "female"]] = None
 
 
 class DonorRegisterResponse(BaseModel):

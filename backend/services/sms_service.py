@@ -28,6 +28,9 @@ logger = logging.getLogger("goldenhour.sms")
 # Most-recently delivered confirmation links, newest first — backs /dev/links.
 recent_links: List[Dict] = []
 
+# Most-recently dispatched donor alerts, newest first — backs /dev/alerts.
+recent_alerts: List[Dict] = []
+
 # Match blood groups in free text, longest first so "AB+" wins over "B+".
 _GROUP_RE = re.compile(
     r"\b(" + "|".join(sorted((re.escape(g) for g in ALL_GROUPS), key=len, reverse=True)) + r")\b",
@@ -53,6 +56,47 @@ def deliver_confirmation_link(hospital_name: str, contact_phone: str, token: str
     else:
         logger.info("Link for %s queued for %s delivery: %s", hospital_name, channel, link)
     return link
+
+
+def alert_donors(donors: List[Dict], blood_group_needed: str) -> int:
+    """"Alert" the nearest K matched donors that blood is needed; return the count.
+
+    Demo uses the same low-friction channels as the hospital links
+    (console/Telegram/log); production swaps in MSG91/Gupshup + DLT. The message
+    is explicit about the operational reality from the PRD: a donor must report
+    to a hospital's LICENSED BLOOD BANK, never the emergency ward, or they will
+    be turned away. This is replacement donation (hours-later), not acute supply.
+    """
+    top = donors[: settings.donor_alert_k]
+    for d in top:
+        message = (
+            f"GoldenHour: blood urgently needed near you (patient needs "
+            f"{blood_group_needed}). If eligible, please donate at a hospital's "
+            f"LICENSED BLOOD BANK - not the emergency ward. Your donation "
+            f"replaces what the patient's surgery uses."
+        )
+        recent_alerts.insert(
+            0,
+            {
+                "phone": d["phone"],
+                "blood_group": d["blood_group"],
+                "distance_m": d.get("distance_m"),
+                "message": message,
+            },
+        )
+        if settings.delivery_channel == "console":
+            logger.info("[DONOR ALERT] %s (%s)", d["phone"], d["blood_group"])
+            print(f"[DONOR ALERT] {d['phone']} ({d['blood_group']}): {message}")
+        elif settings.delivery_channel == "telegram":
+            _send_telegram(message)
+        else:
+            logger.info(
+                "Donor alert for %s queued for %s delivery",
+                d["phone"],
+                settings.delivery_channel,
+            )
+    del recent_alerts[100:]  # keep the page short
+    return len(top)
 
 
 def _send_telegram(text: str) -> None:

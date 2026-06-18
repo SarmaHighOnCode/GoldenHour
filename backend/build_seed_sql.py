@@ -52,13 +52,14 @@ def build() -> str:
     out += [
         "-- Donors --------------------------------------------------------------------",
         "insert into blood_donors (id, name, phone, blood_group, lat, lng, "
-        "last_donated, available) values",
+        "last_donated, sex, available) values",
     ]
     rows = []
     for d in seed_data.donors():
         last = "'%s'" % d["last_donated"] if d["last_donated"] else "null"
+        sex = "'%s'" % d["sex"] if d.get("sex") else "null"
         rows.append(
-            "  ('{id}', '{name}', '{phone}', '{bg}', {lat}, {lng}, {last}, {av})".format(
+            "  ('{id}', '{name}', '{phone}', '{bg}', {lat}, {lng}, {last}, {sex}, {av})".format(
                 id=d["id"],
                 name=_esc(d["name"]),
                 phone=d["phone"],
@@ -66,6 +67,7 @@ def build() -> str:
                 lat=d["lat"],
                 lng=d["lng"],
                 last=last,
+                sex=sex,
                 av=str(d["available"]).lower(),
             )
         )

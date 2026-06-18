@@ -1,6 +1,6 @@
 """Unit tests for the algorithms: blood compatibility, geo, ranking, matching."""
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 
 from blood import compatible_donor_groups
 from geo import haversine_km
@@ -55,6 +55,20 @@ def test_ranking_prefers_department_match():
     assert any(c["department_match"] for c in ranked)
 
 
+def test_hospital_reliability_cold_start_then_accumulates():
+    # At launch a hospital has no logged confirmations -> rel is not trusted.
+    store = get_store()
+    assert store.hospital_reliability("h1") == (0, 0.0)
+
+    # Two confirmations logged for the same hospital: one accept, one decline.
+    store.create_confirmation("e1", "h1", "SMS Hospital", "tok-a")
+    store.create_confirmation("e1", "h1", "SMS Hospital", "tok-b")
+    store.record_reply("tok-a", True)
+    store.record_reply("tok-b", False)
+    count, rate = store.hospital_reliability("h1")
+    assert count == 2 and rate == 0.5
+
+
 # --- Donor matching --------------------------------------------------------
 def test_match_donors_respects_compatibility_and_radius():
     store = get_store()
@@ -73,3 +87,19 @@ def test_match_donors_excludes_recent_donations():
         if d["last_donated"]:
             days = (today - date.fromisoformat(d["last_donated"])).days
             assert days >= 90
+
+
+def test_female_donor_has_longer_cooldown():
+    # Same group, same spot, donated 100 days ago: a man is eligible (>= 90d),
+    # a woman is still inside her 120-day window.
+    store = get_store()
+    today = date(2026, 6, 18)
+    hundred_days_ago = (today - timedelta(days=100)).isoformat()
+    store.add_donor("Male Donor", "+919800000001", "O-", 26.9124, 75.7873,
+                    hundred_days_ago, sex="male")
+    store.add_donor("Female Donor", "+919800000002", "O-", 26.9124, 75.7873,
+                    hundred_days_ago, sex="female")
+
+    phones = {d["phone"] for d in match_donors(store, 26.9124, 75.7873, "O-", today=today)}
+    assert "+919800000001" in phones      # man: 100 days >= 90-day cooldown
+    assert "+919800000002" not in phones  # woman: 100 days < 120-day cooldown

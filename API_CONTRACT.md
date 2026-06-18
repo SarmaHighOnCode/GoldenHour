@@ -41,11 +41,14 @@ This is the single most important document for the team. Both the backend (You) 
       "phone": "+91xxxxxxxxxx"
     }
   ],
-  "donors_alerted": 5
+  "donors_alerted": 5,
+  "rare_group": false
 }
 ```
 - `hospitals` is an array, already sorted best-first by the backend.
 - `donors_alerted` is just a count (integer) for the UI to display.
+- `rare_group` (boolean) is `true` when the needed group is Rh-negative (scarce
+  supply); the UI can warn that compatible donors may be few. Safe to ignore.
 
 ## Endpoint 2 — Poll / subscribe to emergency status
 `GET /emergency/{request_id}/status`
@@ -59,9 +62,13 @@ This is the single most important document for the team. Both the backend (You) 
     { "hospital_id": "h2", "name": "Fortis Jaipur", "eta_minutes": 9, "status": "pending" }
   ],
   "donors_alerted": 5,
-  "donors_responded": 2
+  "donors_responded": 2,
+  "unconfirmed_fallback": false
 }
 ```
+- `unconfirmed_fallback` (boolean) becomes `true` once ~3 minutes pass with no
+  hospital confirmed. Cue for the UI to surface the nearest hospitals with a
+  1-tap call button (the phones from the `POST /emergency` response). Safe to ignore.
 
 ## Endpoint 3 — Hospital taps Accept / Decline
 `POST /confirm/{token}`
@@ -91,10 +98,14 @@ This is hit by the hospital confirmation page when the contact taps a button.
   "blood_group": "B+",
   "lat": 26.9200,
   "lng": 75.8000,
-  "last_donated": "2025-01-15"
+  "last_donated": "2025-01-15",
+  "sex": "female"
 }
 ```
 `last_donated` is a date string "YYYY-MM-DD", or null if never donated.
+`sex` is **optional** — `"male"` or `"female"`. It only sets the donation
+cooldown (120 days for women, 90 otherwise). Omit it and the backend defaults to
+90 days; existing forms need no change.
 
 **Backend returns:**
 ```json

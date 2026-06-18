@@ -16,16 +16,19 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict
 
+from blood import is_rare_group
 from config import settings
 from services.donor_service import match_donors
 from services.hospital_service import rank_hospitals
-from services.sms_service import deliver_confirmation_link
+from services.sms_service import alert_donors, deliver_confirmation_link
 
 
 async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dict:
     """Run the full emergency fan-out and return the API response payload."""
     ranked = await rank_hospitals(store, lat, lng, emergency_type)
     donors = match_donors(store, lat, lng, blood_group)
+    # Blood branch: actually dispatch alerts to the nearest top-K donors.
+    donors_alerted = alert_donors(donors, blood_group)
 
     # Public hospital cards (no internal scoring fields).
     cards = [
@@ -47,7 +50,7 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
         emergency_type=emergency_type,
         blood_group=blood_group,
         hospital_cards=cards,
-        donors_alerted=len(donors),
+        donors_alerted=donors_alerted,
     )
 
     # One confirmation request + link per hospital.
@@ -69,7 +72,8 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
     return {
         "request_id": emergency["id"],
         "hospitals": cards,
-        "donors_alerted": len(donors),
+        "donors_alerted": donors_alerted,
+        "rare_group": is_rare_group(blood_group),
     }
 
 
@@ -85,10 +89,12 @@ def get_status(store, request_id: str) -> Dict:
         for c in store.confirmations_for_emergency(request_id)
     }
     hospital_cards = []
+    any_confirmed = False
     for card in emergency["hospitals"]:
         conf = confirmations.get(card["hospital_id"])
         if conf and conf["confirmed"] is True:
             status = "confirmed"
+            any_confirmed = True
         elif conf and conf["confirmed"] is False:
             status = "declined"
         else:
@@ -102,11 +108,19 @@ def get_status(store, request_id: str) -> Dict:
             }
         )
 
+    # If nothing has confirmed within the window, tell the UI to surface the
+    # nearest-hospitals 1-tap-call fallback (slide 7: "never show a false bed").
+    elapsed = (datetime.now(timezone.utc) - emergency["created_at"]).total_seconds()
+    unconfirmed_fallback = (
+        not any_confirmed and elapsed >= settings.unconfirmed_fallback_seconds
+    )
+
     return {
         "request_id": request_id,
         "hospitals": hospital_cards,
         "donors_alerted": emergency["donors_alerted"],
         "donors_responded": _simulated_responses(emergency),
+        "unconfirmed_fallback": unconfirmed_fallback,
     }
 
 

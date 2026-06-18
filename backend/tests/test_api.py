@@ -31,9 +31,10 @@ def test_emergency_returns_contract_shape(client):
     resp = _trigger(client)
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body) == {"request_id", "hospitals", "donors_alerted"}
+    assert set(body) == {"request_id", "hospitals", "donors_alerted", "rare_group"}
     assert isinstance(body["hospitals"], list) and body["hospitals"]
     assert isinstance(body["donors_alerted"], int)
+    assert isinstance(body["rare_group"], bool)
 
     card = body["hospitals"][0]
     assert set(card) == {
@@ -41,6 +42,20 @@ def test_emergency_returns_contract_shape(client):
         "distance_km", "status", "phone",
     }
     assert card["status"] == "pending"
+
+
+def test_emergency_alerts_donors_with_blood_bank_directive(client):
+    from services import sms_service
+
+    sms_service.recent_alerts.clear()
+    _trigger(client)
+    assert sms_service.recent_alerts, "expected the blood branch to dispatch alerts"
+    assert any("blood bank" in a["message"].lower() for a in sms_service.recent_alerts)
+
+
+def test_rare_group_flag_tracks_rh_negative(client):
+    assert _trigger(client, blood_group="O-").json()["rare_group"] is True
+    assert _trigger(client, blood_group="O+").json()["rare_group"] is False
 
 
 def test_emergency_hospitals_sorted_best_first(client):
@@ -66,8 +81,11 @@ def test_status_shape(client):
     body = client.get(f"/emergency/{request_id}/status").json()
     assert set(body) == {
         "request_id", "hospitals", "donors_alerted", "donors_responded",
+        "unconfirmed_fallback",
     }
     assert body["request_id"] == request_id
+    # Freshly created — well inside the no-confirmation window.
+    assert body["unconfirmed_fallback"] is False
     card = body["hospitals"][0]
     assert set(card) == {"hospital_id", "name", "eta_minutes", "status"}
 

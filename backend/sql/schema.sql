@@ -39,6 +39,7 @@ create table if not exists blood_donors (
                       generated always as
                       (ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography) stored,
     last_donated  date,                             -- null = never donated
+    sex           text,                             -- 'male' | 'female' | null
     available     boolean not null default true
 );
 
@@ -87,11 +88,12 @@ create index if not exists idx_conf_emergency on confirmation_requests (emergenc
 -- Call via supabase.rpc('donors_nearby', {...}). Mirrors donor_service logic.
 -- ---------------------------------------------------------------------------
 create or replace function donors_nearby(
-    p_lat            double precision,
-    p_lng            double precision,
-    p_groups         text[],
-    p_radius_m       double precision default 5000,
-    p_cooldown_days  integer default 90
+    p_lat                   double precision,
+    p_lng                   double precision,
+    p_groups                text[],
+    p_radius_m              double precision default 5000,
+    p_cooldown_days         integer default 90,
+    p_cooldown_days_female  integer default 120
 )
 returns setof blood_donors
 language sql
@@ -102,7 +104,10 @@ as $$
     where d.blood_group = any(p_groups)
       and d.available = true
       and (d.last_donated is null
-           or d.last_donated < current_date - (p_cooldown_days || ' days')::interval)
+           or d.last_donated < current_date
+               - ((case when d.sex = 'female'
+                        then p_cooldown_days_female
+                        else p_cooldown_days end) || ' days')::interval)
       and ST_DWithin(
             d.location,
             ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography,

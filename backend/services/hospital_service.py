@@ -7,7 +7,12 @@ nearby hospital and return the best N. The score (from the backend PRD):
 
     prox(h) = 1 - (eta / eta_max), clamped to [0, 1]   -> closer is better
     dept(h) = 1 if the needed department is present, else 0
-    rel(h)  = avg_response_rate (0..1)                  -> historically reliable
+    rel(h)  = live acceptance rate (0..1)              -> historically reliable
+
+Cold start: rel(h) only enters the score once a hospital has logged at least
+``REL_ACTIVATION_THRESHOLD`` confirmations. We have no honest reliability signal
+before then, so the score degrades to proximity + department, renormalised to
+span [0, 1]. At launch (no confirmations yet) ranking is pure prox + dept.
 """
 from __future__ import annotations
 
@@ -28,6 +33,19 @@ _TYPE_TO_DEPARTMENT = {
 def _proximity_score(eta: int) -> float:
     raw = 1.0 - (eta / settings.eta_max_minutes)
     return max(0.0, min(1.0, raw))
+
+
+def _score(store, hospital_id: str, prox: float, dept: float) -> float:
+    """Blend proximity, department, and (only once trustworthy) reliability.
+
+    rel(h) is the hospital's live acceptance rate, included only after it has
+    logged >= REL_ACTIVATION_THRESHOLD confirmations. Until then the score is
+    proximity + department, renormalised by 0.8 so it still spans [0, 1].
+    """
+    replied, accept_rate = store.hospital_reliability(hospital_id)
+    if replied >= settings.rel_activation_threshold:
+        return 0.5 * prox + 0.3 * dept + 0.2 * accept_rate
+    return (0.5 * prox + 0.3 * dept) / 0.8
 
 
 async def rank_hospitals(
@@ -57,8 +75,7 @@ async def rank_hospitals(
         dept_match = needed_dept in h.get("departments", [])
         prox = _proximity_score(eta)
         dept = 1.0 if dept_match else 0.0
-        rel = float(h.get("avg_response_rate", 0.0))
-        score = 0.5 * prox + 0.3 * dept + 0.2 * rel
+        score = _score(store, h["id"], prox, dept)
 
         scored.append(
             {

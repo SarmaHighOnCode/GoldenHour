@@ -123,6 +123,7 @@ docs are served at `/docs` (Swagger) and `/redoc` when the app is running.
 | `GET /health` | Liveness + which mode the app is running in (cheap, no I/O). |
 | `GET /ready` | Readiness — pings the data layer; 503 if the DB is unreachable. |
 | `GET /dev/links` | Demo helper: the confirmation links recently "sent" to hospitals. |
+| `GET /dev/alerts` | Demo helper: the blood-needed alerts recently "sent" to donors. |
 
 ---
 
@@ -136,12 +137,23 @@ P(h) = 0.5 · prox(h) + 0.3 · dept(h) + 0.2 · rel(h)
 
 prox(h) = 1 − (eta / eta_max), clamped to [0, 1]   # closer is better
 dept(h) = 1 if the needed department is present else 0
-rel(h)  = avg_response_rate                          # historically reliable
+rel(h)  = live acceptance rate                       # historically reliable
 ```
 
+**Reliability cold start.** `rel(h)` only enters the score once a hospital has
+logged ≥ `REL_ACTIVATION_THRESHOLD` (default 20) confirmations — we have no
+honest reliability signal before then. Until a hospital crosses that bar the
+score degrades to `prox + dept`, renormalised to span [0, 1]. At launch (no
+confirmations yet) ranking is pure proximity + department. If nothing confirms
+within ~3 minutes the status response flags `unconfirmed_fallback` so the UI can
+surface the nearest hospitals with a 1-tap call — never a false "bed available."
+
 **2. Blood matching** (`services/donor_service.py` + `blood.py`) — compatible
-donor groups (hardcoded ABO table), available, within 5 km, and off the 90-day
-cooldown (`last_donated IS NULL OR last_donated < today − 90d`), nearest first.
+donor groups (hardcoded ABO table), available, within 5 km, and off the
+sex-aware cooldown (90 days men / 120 days women — `last_donated IS NULL OR
+last_donated < today − cooldown`), nearest first. The nearest top-K are then
+alerted (`services/sms_service.py`) with directions to the hospital's **licensed
+blood bank**, not the emergency ward. Rh-negative requests are flagged `rare_group`.
 
 **3. Confirmation flow** (`services/confirm_service.py`) — the first hospital to
 accept "takes" the patient; any later acceptance gets `already_confirmed: true`
@@ -203,7 +215,11 @@ Everything is environment-driven (see [`.env.example`](.env.example)). Highlight
 | `FRONTEND_URL` | `http://localhost:5173` | Base for `/confirm/<token>` links. |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins. |
 | `DONOR_RADIUS_METERS` | `5000` | Donor search radius. |
-| `DONOR_COOLDOWN_DAYS` | `90` | Post-donation ineligibility window. |
+| `DONOR_COOLDOWN_DAYS` | `90` | Post-donation cooldown (men / default). |
+| `DONOR_COOLDOWN_DAYS_FEMALE` | `120` | Post-donation cooldown for women. |
+| `DONOR_ALERT_K` | `10` | Nearest matched donors actually alerted per emergency. |
+| `REL_ACTIVATION_THRESHOLD` | `20` | Confirmations a hospital needs before `rel(h)` counts. |
+| `UNCONFIRMED_FALLBACK_SECONDS` | `180` | No-confirmation window before status flags the 1-tap-call fallback. |
 | `RANKING_TOP_N` | `5` | Hospitals returned per emergency. |
 
 ---
@@ -213,7 +229,7 @@ Everything is environment-driven (see [`.env.example`](.env.example)). Highlight
 ```bash
 cd backend
 pip install -r requirements-dev.txt
-pytest                # 26 tests: algorithms + endpoint contract + live flow + Supabase path
+pytest                # 30 tests: algorithms + endpoint contract + live flow + Supabase path
 ```
 
 The suite runs fully offline (no Supabase, no network) and verifies the exact

@@ -128,6 +128,7 @@ async def register_donor(request: DonorRegisterRequest):
         lat=request.lat,
         lng=request.lng,
         last_donated=request.last_donated,
+        sex=request.sex,
     )
     return DonorRegisterResponse(ok=True, donor_id=donor_id)
 
@@ -145,3 +146,9 @@ async def handle_sms_inbound(request: SmsInboundRequest):
 async def dev_links():
     """Demo helper: the confirmation links recently 'sent' to hospitals."""
     return {"links": sms_service.recent_links}
+
+
+@app.get("/dev/alerts", tags=["meta"])
+async def dev_alerts():
+    """Demo helper: the blood-needed alerts recently 'sent' to donors."""
+    return {"alerts": sms_service.recent_alerts}

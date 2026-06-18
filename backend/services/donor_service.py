@@ -37,6 +37,7 @@ def match_donors(
         compatible_groups=compatible,
         radius_meters=settings.donor_radius_meters,
         cooldown_days=settings.donor_cooldown_days,
+        cooldown_days_female=settings.donor_cooldown_days_female,
         today=today,
     )
 
@@ -49,6 +50,7 @@ def register_donor(
     lat: float,
     lng: float,
     last_donated: Optional[str],
+    sex: Optional[str] = None,
 ) -> str:
     """Add a donor to the registry and return the new donor id."""
     from services.phone_utils import normalize_phone
@@ -61,4 +63,5 @@ def register_donor(
         lat=lat,
         lng=lng,
         last_donated=last_donated,
+        sex=sex,
     )

@@ -84,6 +84,7 @@ class InMemoryStore:
         compatible_groups: List[str],
         radius_meters: float,
         cooldown_days: int,
+        cooldown_days_female: Optional[int] = None,
         today: Optional[date] = None,
     ) -> List[Dict]:
         today = today or date.today()
@@ -95,7 +96,10 @@ class InMemoryStore:
             if not d.get("available", True):
                 continue
             last = _parse_date(d.get("last_donated"))
-            if last is not None and (today - last).days < cooldown_days:
+            cooldown = cooldown_days
+            if cooldown_days_female is not None and d.get("sex") == "female":
+                cooldown = cooldown_days_female
+            if last is not None and (today - last).days < cooldown:
                 continue
             dist = haversine_meters(lat, lng, d["lat"], d["lng"])
             if dist > radius_meters:
@@ -106,7 +110,7 @@ class InMemoryStore:
         result.sort(key=lambda d: d["distance_m"])
         return result
 
-    def add_donor(self, name, phone, blood_group, lat, lng, last_donated) -> str:
+    def add_donor(self, name, phone, blood_group, lat, lng, last_donated, sex=None) -> str:
         donor_id = f"d{next(self._donor_seq)}"
         self.donors.append(
             {
@@ -117,6 +121,7 @@ class InMemoryStore:
                 "lat": lat,
                 "lng": lng,
                 "last_donated": last_donated,
+                "sex": sex,
                 "available": True,
             }
         )
@@ -169,6 +174,22 @@ class InMemoryStore:
         return any(
             c["confirmed"] is True for c in self.confirmations_for_emergency(emergency_id)
         )
+
+    def hospital_reliability(self, hospital_id: str) -> tuple[int, float]:
+        """(#replied confirmations, acceptance rate) for a hospital, all-time.
+
+        Powers the cold-start gate in ranking: reliability is trusted only once
+        enough confirmations have actually been logged for this hospital.
+        """
+        replied = [
+            c
+            for c in self.confirmations.values()
+            if c["hospital_id"] == hospital_id and c["confirmed"] is not None
+        ]
+        if not replied:
+            return 0, 0.0
+        accepted = sum(1 for c in replied if c["confirmed"] is True)
+        return len(replied), accepted / len(replied)
 
     def record_reply(self, token: str, accepted: bool) -> None:
         """Persist a hospital's Accept/Decline and update the emergency snapshot."""
@@ -225,6 +246,7 @@ class SupabaseStore:
         compatible_groups: List[str],
         radius_meters: float,
         cooldown_days: int,
+        cooldown_days_female: Optional[int] = None,
         today: Optional[date] = None,
     ) -> List[Dict]:
         res = self.client.rpc(
@@ -235,6 +257,9 @@ class SupabaseStore:
                 "p_groups": compatible_groups,
                 "p_radius_m": radius_meters,
                 "p_cooldown_days": cooldown_days,
+                "p_cooldown_days_female": (
+                    cooldown_days_female if cooldown_days_female is not None else cooldown_days
+                ),
             },
         ).execute()
         donors = res.data or []
@@ -242,7 +267,7 @@ class SupabaseStore:
             d["distance_m"] = round(haversine_meters(lat, lng, d["lat"], d["lng"]), 1)
         return donors
 
-    def add_donor(self, name, phone, blood_group, lat, lng, last_donated) -> str:
+    def add_donor(self, name, phone, blood_group, lat, lng, last_donated, sex=None) -> str:
         donor_id = f"d{uuid.uuid4().hex[:8]}"
         self.client.table("blood_donors").insert(
             {
@@ -253,6 +278,7 @@ class SupabaseStore:
                 "lat": lat,
                 "lng": lng,
                 "last_donated": last_donated,
+                "sex": sex,
                 "available": True,
             }
         ).execute()
@@ -368,6 +394,20 @@ class SupabaseStore:
             .execute()
         )
         return bool(res.data)
+
+    def hospital_reliability(self, hospital_id: str) -> tuple[int, float]:
+        """(#replied confirmations, acceptance rate) for a hospital, all-time."""
+        res = (
+            self.client.table("confirmation_requests")
+            .select("confirmed")
+            .eq("hospital_id", hospital_id)
+            .execute()
+        )
+        replied = [r for r in (res.data or []) if r.get("confirmed") is not None]
+        if not replied:
+            return 0, 0.0
+        accepted = sum(1 for r in replied if r["confirmed"] is True)
+        return len(replied), accepted / len(replied)
 
     def record_reply(self, token: str, accepted: bool) -> None:
         self.client.table("confirmation_requests").update(

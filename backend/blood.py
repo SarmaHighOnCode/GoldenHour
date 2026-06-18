@@ -11,6 +11,17 @@ from typing import List
 
 ALL_GROUPS: List[str] = ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"]
 
+# Rh-negative groups are scarce in India (~5% of the population). Flag them so
+# the UI can warn that compatible donors may be few and rare-group blood banks
+# should be contacted in parallel.
+RARE_GROUPS = frozenset({"O-", "A-", "B-", "AB-"})
+
+
+def is_rare_group(recipient_group: str) -> bool:
+    """True when the needed blood group is Rh-negative (scarce supply)."""
+    return recipient_group in RARE_GROUPS
+
+
 # recipient blood group -> list of donor groups that may donate to them
 _COMPATIBLE_DONORS = {
     "O-": ["O-"],

@@ -2,9 +2,9 @@
 
 ~25 real Jaipur hospitals with approximate coordinates and varied departments,
 plus ~180 donors spread across all 8 blood groups and varied distances. The
-``last_donated`` dates are deliberately spread so the 90-day cooldown filter
-visibly excludes some donors (the eligibility logic actually does something in
-the demo).
+``last_donated`` dates are deliberately spread so the sex-aware cooldown filter
+(90 days men / 120 days women) visibly excludes some donors (the eligibility
+logic actually does something in the demo).
 
 Generation is seeded, so every boot and every run of ``seed_supabase.py``
 produces the same dataset — reproducible demos, stable tests.
@@ -104,9 +104,10 @@ def donors(count: int = 180, seed: int = 42) -> List[Dict]:
     for i in range(1, count + 1):
         lat, lng = _scatter(rng, max_km=12.0)
         group = ALL_GROUPS[i % len(ALL_GROUPS)]
+        sex = "female" if rng.random() < 0.5 else "male"
 
         # Spread donation history: ~25% never donated, the rest 10–200 days ago
-        # so some fall inside the 90-day cooldown and some don't.
+        # so some fall inside the cooldown (90d men / 120d women) and some don't.
         roll = rng.random()
         if roll < 0.25:
             last_donated = None
@@ -123,6 +124,7 @@ def donors(count: int = 180, seed: int = 42) -> List[Dict]:
                 "lat": lat,
                 "lng": lng,
                 "last_donated": last_donated,
+                "sex": sex,
                 "available": True,
             }
         )

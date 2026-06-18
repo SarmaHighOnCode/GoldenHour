@@ -95,13 +95,16 @@ class FakeSupabaseClient:
     def _donors_nearby(self, p: Dict) -> List[Dict]:
         today = date.today()
         groups = set(p["p_groups"])
+        cd_male = p.get("p_cooldown_days", 90)
+        cd_female = p.get("p_cooldown_days_female", cd_male)
         out = []
         for d in self.tables["blood_donors"]:
             if d["blood_group"] not in groups or not d.get("available", True):
                 continue
             last = d.get("last_donated")
             if last:
-                if (today - date.fromisoformat(last)).days < p["p_cooldown_days"]:
+                cooldown = cd_female if d.get("sex") == "female" else cd_male
+                if (today - date.fromisoformat(last)).days < cooldown:
                     continue
             if haversine_meters(p["p_lat"], p["p_lng"], d["lat"], d["lng"]) > p["p_radius_m"]:
                 continue
