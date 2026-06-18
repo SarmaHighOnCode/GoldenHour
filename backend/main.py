@@ -38,32 +38,72 @@ async def lifespan(_app: FastAPI):
     yield
 
 
+# OpenAPI tag groups — describe each section shown in /docs and /redoc.
+TAGS_METADATA = [
+    {
+        "name": "emergency",
+        "description": "Trigger an emergency and poll its live status. One request "
+        "fans out into hospital ranking + blood-donor matching.",
+    },
+    {
+        "name": "confirmation",
+        "description": "A hospital contact accepts or declines a patient via a "
+        "one-tap link. First to accept wins; later accepts are told it is taken.",
+    },
+    {
+        "name": "donors",
+        "description": "Register replacement-blood donors (sex sets the cooldown).",
+    },
+    {
+        "name": "sms",
+        "description": "Feature-phone fallback — parse an inbound SMS, reply with "
+        "the nearest hospitals.",
+    },
+    {
+        "name": "meta",
+        "description": "Health, readiness, and demo helpers (`/dev/links`, "
+        "`/dev/alerts`).",
+    },
+]
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.version,
+    summary="Emergency hospital routing + replacement-blood donor alerting.",
     description=(
-        "Emergency hospital routing + replacement-blood donor alerting. "
-        "One GPS-triggered request finds a hospital with the right department "
-        "and a free bed, and alerts nearby compatible donors."
+        "One GPS-triggered request finds a hospital with the right department and "
+        "a free bed **and** alerts nearby compatible blood donors — two parallel "
+        "actions inside the golden hour.\n\n"
+        "Runs in **demo mode** with zero external services (seeded in-memory store); "
+        "set the Supabase / Google Maps / SMS env vars to switch to the real stack."
     ),
+    contact={
+        "name": "GoldenHour — Bharat Academix CodeQuest 2026",
+        "url": "https://github.com/SarmaHighOnCode/GoldenHour",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://github.com/SarmaHighOnCode/GoldenHour/blob/main/LICENSE",
+    },
+    openapi_tags=TAGS_METADATA,
     lifespan=lifespan,
 )
 add_cors_middleware(app)
 
 
-@app.get("/", tags=["meta"])
+@app.get("/", tags=["meta"], summary="Service info")
 async def root():
     return {"service": settings.app_name, "version": settings.version, "docs": "/docs"}
 
 
-@app.get("/health", response_model=HealthResponse, tags=["meta"])
+@app.get("/health", response_model=HealthResponse, tags=["meta"], summary="Liveness probe")
 async def health_check():
     """Liveness — cheap, no I/O (safe for frequent platform health checks)."""
     mode = "supabase" if settings.use_supabase else "in-memory"
     return HealthResponse(status="ok", version=settings.version, mode=mode)
 
 
-@app.get("/ready", tags=["meta"])
+@app.get("/ready", tags=["meta"], summary="Readiness probe (pings the data layer)")
 async def readiness_check():
     """Readiness — verifies the data layer actually answers (pings the DB).
 
@@ -76,7 +116,12 @@ async def readiness_check():
     return {"ready": True, "backend": store.backend}
 
 
-@app.post("/emergency", response_model=EmergencyResponse, tags=["emergency"])
+@app.post(
+    "/emergency",
+    response_model=EmergencyResponse,
+    tags=["emergency"],
+    summary="Trigger an emergency",
+)
 async def trigger_emergency(request: EmergencyRequest):
     """Trigger an emergency: rank hospitals, alert donors, send confirmations."""
     store = get_store()
@@ -93,6 +138,7 @@ async def trigger_emergency(request: EmergencyRequest):
     "/emergency/{request_id}/status",
     response_model=EmergencyStatusResponse,
     tags=["emergency"],
+    summary="Live emergency status",
 )
 async def get_emergency_status(request_id: str):
     """Poll/subscribe target: live hospital replies + donor responses."""
@@ -106,6 +152,7 @@ async def get_emergency_status(request_id: str):
     "/confirm/{token}",
     response_model=HospitalConfirmResponse,
     tags=["confirmation"],
+    summary="Hospital accept / decline",
 )
 async def confirm_hospital(token: str, request: HospitalConfirmRequest):
     """A hospital contact taps Accept (true) or Not Available (false)."""
@@ -117,7 +164,12 @@ async def confirm_hospital(token: str, request: HospitalConfirmRequest):
         raise HTTPException(status_code=404, detail="Unknown confirmation token")
 
 
-@app.post("/donor/register", response_model=DonorRegisterResponse, tags=["donors"])
+@app.post(
+    "/donor/register",
+    response_model=DonorRegisterResponse,
+    tags=["donors"],
+    summary="Register a blood donor",
+)
 async def register_donor(request: DonorRegisterRequest):
     """Register a replacement-blood donor."""
     donor_id = donor_service.register_donor(
@@ -133,7 +185,12 @@ async def register_donor(request: DonorRegisterRequest):
     return DonorRegisterResponse(ok=True, donor_id=donor_id)
 
 
-@app.post("/sms/inbound", response_model=SmsInboundResponse, tags=["sms"])
+@app.post(
+    "/sms/inbound",
+    response_model=SmsInboundResponse,
+    tags=["sms"],
+    summary="Inbound SMS (feature phone)",
+)
 async def handle_sms_inbound(request: SmsInboundRequest):
     """Feature-phone path (stretch): parse an inbound SMS and reply."""
     reply = sms_service.handle_inbound(
@@ -142,13 +199,13 @@ async def handle_sms_inbound(request: SmsInboundRequest):
     return SmsInboundResponse(reply=reply)
 
 
-@app.get("/dev/links", tags=["meta"])
+@app.get("/dev/links", tags=["meta"], summary="Recent hospital links (demo)")
 async def dev_links():
     """Demo helper: the confirmation links recently 'sent' to hospitals."""
     return {"links": sms_service.recent_links}
 
 
-@app.get("/dev/alerts", tags=["meta"])
+@app.get("/dev/alerts", tags=["meta"], summary="Recent donor alerts (demo)")
 async def dev_alerts():
     """Demo helper: the blood-needed alerts recently 'sent' to donors."""
     return {"alerts": sms_service.recent_alerts}

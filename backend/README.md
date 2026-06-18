@@ -34,6 +34,10 @@ algorithms, the confirmation/messaging flow, and live updates to the frontend.
 
 A strict three-layer design — HTTP in, services in the middle, data at the bottom:
 
+<p align="center">
+  <img src="../docs/architecture.svg" alt="Three layers — HTTP routes, services, data — with InMemoryStore and SupabaseStore behind get_store()" width="100%">
+</p>
+
 ```
                     HTTP (FastAPI routes)            ── main.py
                     │  validate with schemas.py, call ONE service, return a schema

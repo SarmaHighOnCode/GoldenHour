@@ -1,3 +1,17 @@
+<p align="center">
+  <img src="docs/banner.svg" alt="GoldenHour — one request, the right hospital and ready blood, inside the hour that decides" width="100%">
+</p>
+
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-F59E0B">
+  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white">
+  <img alt="Pydantic v2" src="https://img.shields.io/badge/Pydantic-v2-E92063?logo=pydantic&logoColor=white">
+  <img alt="Supabase + PostGIS" src="https://img.shields.io/badge/Supabase-PostGIS-3ECF8E?logo=supabase&logoColor=white">
+  <img alt="Tests: 31 passing" src="https://img.shields.io/badge/tests-31%20passing-34D399">
+  <img alt="PWA: React 19" src="https://img.shields.io/badge/PWA-React%2019-61DAFB?logo=react&logoColor=black">
+</p>
+
 # GoldenHour
 
 > One tap. Two lifelines. The right hospital and the right blood — before the car even moves.
@@ -14,64 +28,35 @@ outside any ambulance system. The "golden hour" after a trauma is when minutes
 decide outcomes; GoldenHour spends those minutes finding a hospital that can
 actually take the patient instead of driving to one that can't.
 
-**Tags:** `Healthcare Technology` · `Social Impact` · `Bharat Academix CodeQuest 2026` · `FastAPI` · `React` · `Supabase` · `PostGIS`
+**Tags:** `Healthcare Technology` · `Social Impact` · `Emergency Response` · `Bharat Academix CodeQuest 2026` · `FastAPI` · `React` · `Supabase` · `PostGIS` · `PWA`
 
 ---
 
 ## How it works (end-to-end)
 
-```
-   ┌──────────────────────────────────────────────────────────────────────┐
-   │                          PATIENT'S PHONE (PWA)                         │
-   │   "Use my location" → emergency type + blood group → [ GET HELP ]      │
-   └───────────────────────────────────┬──────────────────────────────────┘
-                                        │  POST /emergency  { lat,lng,type,group }
-                                        ▼
-   ┌──────────────────────────────────────────────────────────────────────┐
-   │                        GoldenHour API (FastAPI)                        │
-   │                                                                        │
-   │   ┌────────────────────────┐        ┌───────────────────────────┐     │
-   │   │  Hospital ranking       │        │  Blood matching            │     │
-   │   │  PostGIS radius + score │        │  ABO table + 5km + cooldown│     │
-   │   └───────────┬────────────┘        └──────────────┬────────────┘     │
-   │               │ top N hospitals                    │ compatible donors │
-   │               ▼                                     ▼                   │
-   │   create confirmation_requests (1 link/hospital)   count donors_alerted │
-   └───────┬───────────────────────────────────┬───────────────────────────┘
-           │ confirmation link                  │ live status
-           ▼                                    ▼
-   ┌────────────────────────┐        ┌──────────────────────────────────────┐
-   │  HOSPITAL CONTACT       │        │  Back on the PATIENT'S phone          │
-   │  /confirm/:token        │        │  /results/:id — cards flip live       │
-   │  [Accept] / [Decline]   │──────► │  pending → CONFIRMED (poll/Realtime)  │
-   └────────────────────────┘        └──────────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/flow.svg" alt="One request triggers two parallel actions: hospital ranking and confirmation, plus donor matching and alerting" width="100%">
+</p>
 
-The first hospital to **Accept** "takes" the patient; later acceptances are told
-the patient is already routed. The patient's screen updates live the instant a
-hospital confirms.
+A single `POST /emergency` fans out into both branches at once. On the **hospital**
+side, the backend ranks nearby hospitals and sends each a one-tap confirmation
+link; the **first to Accept "takes" the patient**, and later acceptances are told
+the patient is already routed. On the **blood** side, it matches compatible donors
+within range and alerts the nearest, directing them to the hospital's licensed
+blood bank. The patient's screen updates live the instant a hospital confirms.
 
 ---
 
 ## System architecture
 
-GoldenHour is a two-part system split cleanly by ownership, sharing one contract:
+GoldenHour is a two-part system split cleanly by ownership, sharing one contract.
+The backend itself is a strict three-layer design with two interchangeable data
+stores behind a single `get_store()` — so the demo runs with **zero external
+services** and the production path is a true drop-in, no service-code changes:
 
-```
-┌─────────────────────────────┐         ┌──────────────────────────────────────┐
-│  frontend/  (React PWA)      │  HTTP   │  backend/  (FastAPI)                   │
-│  4 screens, mobile-first     │ ──────► │  routes → services → data layer        │
-│  React Router · Tailwind     │  JSON   │                                        │
-└─────────────────────────────┘         │   ┌────────────────────────────────┐   │
-              ▲                          │   │ store.py                       │   │
-              │ Supabase Realtime /      │   │  • in-memory (demo, seeded)    │   │
-              │ polling for live updates │   │  • Supabase + PostGIS (prod)   │   │
-              └──────────────────────────┤   └────────────────────────────────┘   │
-                                         │   external (prod only):                │
-                                         │   Google Maps ETA · MSG91/Gupshup SMS  │
-                                         └──────────────────────────────────────┘
-                              shared:  API_CONTRACT.md  (exact request/response shapes)
-```
+<p align="center">
+  <img src="docs/architecture.svg" alt="Three layers — HTTP routes, services, data — with InMemoryStore and SupabaseStore behind get_store()" width="100%">
+</p>
 
 - **`API_CONTRACT.md`** is the single source of truth both sides build against.
   The backend's `schemas.py` and the frontend's `fetch()` calls mirror it exactly.
@@ -93,6 +78,7 @@ GoldenHour/
 ├── API_CONTRACT.md             # SHARED contract — exact API request/response shapes
 ├── README.md                   # You are here
 ├── LICENSE
+├── docs/                       # README diagrams (banner, flow, architecture SVGs)
 ├── render.yaml                 # Backend deploy config (Render)
 ├── vercel.json                 # Frontend deploy config (Vercel)
 ├── docker-compose.yml          # One-command local backend (demo mode)
@@ -151,8 +137,8 @@ uvicorn main:app --reload --port 8000
 ```
 
 Open <http://localhost:8000/docs>, trigger an emergency, and watch the hospital
-confirmation links print to the console (or hit `GET /dev/links`). Run the tests
-with `pytest`.
+confirmation links print to the console (`GET /dev/links`) and the donor alerts
+(`GET /dev/alerts`). Run the tests with `pytest`.
 
 Or, with Docker, from the repo root: `docker compose up --build`.
 
@@ -175,11 +161,13 @@ Full shapes in [`API_CONTRACT.md`](API_CONTRACT.md).
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /emergency` | Trigger — rank hospitals, alert donors, send confirmation links |
-| `GET /emergency/{request_id}/status` | Live status — hospital replies + donor responses |
+| `POST /emergency` | Trigger — rank hospitals, alert donors, send confirmation links (`rare_group` flag) |
+| `GET /emergency/{request_id}/status` | Live status — hospital replies + donor responses (`unconfirmed_fallback` flag) |
 | `POST /confirm/{token}` | Hospital taps Accept / Not Available |
-| `POST /donor/register` | Register a replacement-blood donor |
+| `POST /donor/register` | Register a replacement-blood donor (optional `sex` for cooldown) |
 | `POST /sms/inbound` | Feature-phone SMS path (stretch) |
+| `GET /health` · `GET /ready` | Liveness (mode) · readiness (pings the DB) |
+| `GET /dev/links` · `GET /dev/alerts` | Demo: links sent to hospitals · alerts sent to donors |
 
 ---
 
@@ -193,6 +181,7 @@ Full shapes in [`API_CONTRACT.md`](API_CONTRACT.md).
 
 Production secrets (`SUPABASE_*`, `GOOGLE_MAPS_API_KEY`, `MSG91_AUTH_KEY`,
 `VITE_API_BASE_URL`) are set in the respective dashboards — never committed.
+See [`DEPLOY.md`](DEPLOY.md) for the full Supabase + Render runbook.
 
 ---
 
