@@ -71,6 +71,11 @@ def test_emergency_rejects_bad_enum(client):
     assert resp.status_code == 422
 
 
+def test_emergency_rejects_out_of_range_coordinates(client):
+    assert _trigger(client, lat=999).status_code == 422
+    assert _trigger(client, lng=-500).status_code == 422
+
+
 # --- GET /emergency/{id}/status -------------------------------------------
 def test_status_unknown_request_id_is_404(client):
     assert client.get("/emergency/nope/status").status_code == 404

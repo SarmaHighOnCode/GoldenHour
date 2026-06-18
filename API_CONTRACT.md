@@ -10,7 +10,7 @@ This is the single most important document for the team. Both the backend (You) 
 - The frontend **never** talks to the database directly. It only ever calls these endpoints.
 - Blood groups are always strings: `"O+"`, `"O-"`, `"A+"`, `"A-"`, `"B+"`, `"B-"`, `"AB+"`, `"AB-"`.
 - `status` for a hospital is always one of: `"pending"`, `"confirmed"`, `"declined"`.
-- Coordinates: `lat` and `lng` are decimal numbers (e.g. `26.9124`, `75.7873` for Jaipur).
+- Coordinates: `lat` and `lng` are decimal numbers (e.g. `26.9124`, `75.7873` for Jaipur). `lat` must be −90..90 and `lng` −180..180 — out-of-range coordinates (e.g. a failed browser geolocation) are rejected with **422**.
 
 ## Endpoint 1 — Trigger an emergency
 `POST /emergency`

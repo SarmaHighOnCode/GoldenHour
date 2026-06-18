@@ -6,7 +6,7 @@ updating ``API_CONTRACT.md`` and telling the frontend owner first.
 """
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,11 +14,16 @@ EmergencyType = Literal["trauma", "cardiac", "obstetric", "general"]
 BloodGroup = Literal["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"]
 HospitalStatus = Literal["pending", "confirmed", "declined"]
 
+# GPS coordinates, range-checked so a failed/garbage browser geolocation is
+# rejected with 422 rather than producing nonsense distances.
+Latitude = Annotated[float, Field(ge=-90.0, le=90.0)]
+Longitude = Annotated[float, Field(ge=-180.0, le=180.0)]
+
 
 # --- POST /emergency -------------------------------------------------------
 class EmergencyRequest(BaseModel):
-    lat: float
-    lng: float
+    lat: Latitude
+    lng: Longitude
     emergency_type: EmergencyType
     blood_group: BloodGroup
 
@@ -76,8 +81,8 @@ class DonorRegisterRequest(BaseModel):
     name: str
     phone: str
     blood_group: BloodGroup
-    lat: float
-    lng: float
+    lat: Latitude
+    lng: Longitude
     last_donated: Optional[str] = None  # "YYYY-MM-DD" or null
     # Optional. Drives the post-donation cooldown: 120 days for "female",
     # 90 days otherwise. Omitting it defaults to the 90-day window.
