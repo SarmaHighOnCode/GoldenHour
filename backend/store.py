@@ -186,6 +186,10 @@ class InMemoryStore:
             if accepted:
                 emergency["status"] = "confirmed"
 
+    def ping(self) -> bool:
+        """Readiness check — the in-memory store is always ready."""
+        return True
+
 
 # ===========================================================================
 # Supabase store (production)
@@ -388,6 +392,15 @@ class SupabaseStore:
             "id", conf["emergency_id"]
         ).execute()
 
+    def ping(self) -> bool:
+        """Readiness check — confirm the database answers a trivial query."""
+        try:
+            self.client.table("hospitals").select("id").limit(1).execute()
+            return True
+        except Exception:
+            logger.exception("Supabase ping failed")
+            return False
+
 
 # ===========================================================================
 # Store selection
@@ -409,9 +422,10 @@ def get_store():
         try:
             from supabase import create_client
 
-            client = create_client(settings.supabase_url, settings.supabase_key)
+            client = create_client(settings.supabase_url, settings.supabase_active_key)
             _store = SupabaseStore(client)
-            logger.info("Data layer: Supabase (PostGIS)")
+            key_kind = "service-role" if settings.supabase_service_key else "anon"
+            logger.info("Data layer: Supabase (PostGIS), %s key", key_kind)
         except Exception:
             logger.exception("Supabase init failed — falling back to in-memory store")
             _store = InMemoryStore()

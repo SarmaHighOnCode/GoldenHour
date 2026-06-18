@@ -84,7 +84,8 @@ backend/
 ├── geo.py                   # Haversine distance helpers
 ├── store.py                 # Data layer: InMemoryStore + SupabaseStore + get_store()
 ├── seed_data.py             # Deterministic ~25 hospitals + ~180 donors
-├── seed_supabase.py         # Push seed data into a real Supabase DB
+├── seed_supabase.py         # Push seed data into a real Supabase DB (anon/service key)
+├── build_seed_sql.py        # Generate sql/seed.sql from seed_data.py
 ├── services/
 │   ├── emergency_service.py # Orchestrates POST /emergency + status
 │   ├── hospital_service.py  # Hospital ranking algorithm
@@ -97,7 +98,8 @@ backend/
 │   ├── cache.py             # Tiny TTL cache
 │   └── rate_limiter.py      # Fixed-window rate limiter
 ├── sql/
-│   └── schema.sql           # PostGIS tables, indexes, donors_nearby() RPC
+│   ├── schema.sql           # PostGIS tables, indexes, donors_nearby() RPC, RLS notes
+│   └── seed.sql             # Generated SQL seed (run after schema.sql)
 ├── tests/                   # pytest: units + endpoint/contract/flow tests
 ├── requirements.txt
 ├── Dockerfile
@@ -118,7 +120,8 @@ docs are served at `/docs` (Swagger) and `/redoc` when the app is running.
 | `POST /confirm/{token}` | A hospital contact taps Accept (`true`) / Not Available (`false`). |
 | `POST /donor/register` | Register a replacement-blood donor. |
 | `POST /sms/inbound` | Feature-phone path (stretch): parse an SMS, reply with nearest hospitals. |
-| `GET /health` | Liveness + which mode the app is running in. |
+| `GET /health` | Liveness + which mode the app is running in (cheap, no I/O). |
+| `GET /ready` | Readiness — pings the data layer; 503 if the DB is unreachable. |
 | `GET /dev/links` | Demo helper: the confirmation links recently "sent" to hospitals. |
 
 ---
@@ -174,11 +177,15 @@ cd backend && docker build -t goldenhour-api . && docker run -p 8000:8000 golden
 ### With a real Supabase + Maps stack
 
 1. Create a Supabase project; run [`sql/schema.sql`](sql/schema.sql) in the SQL editor.
-2. Enable **Realtime** on the `confirmation_requests` table.
-3. Copy `.env.example` → `.env` and fill in `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-   `GOOGLE_MAPS_API_KEY` (and `MSG91_AUTH_KEY` for SMS).
-4. Seed the database: `python seed_supabase.py`.
-5. Start the app — `GET /health` now reports `"mode": "supabase"`.
+2. Run [`sql/seed.sql`](sql/seed.sql) in the SQL editor to load hospitals + donors
+   (or `python seed_supabase.py` from your machine).
+3. Enable **Realtime** on the `confirmation_requests` table.
+4. Copy `.env.example` → `.env` and fill in `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+   (preferred for the backend), `GOOGLE_MAPS_API_KEY` (and `MSG91_AUTH_KEY` for SMS).
+5. Start the app — `GET /health` reports `"mode": "supabase"`; `GET /ready`
+   confirms the DB is reachable.
+
+See [`../DEPLOY.md`](../DEPLOY.md) for the full Render + Supabase runbook.
 
 ---
 
@@ -188,7 +195,9 @@ Everything is environment-driven (see [`.env.example`](.env.example)). Highlight
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | — | Set both → use the real database. |
+| `SUPABASE_URL` + a key | — | Set URL + a key → use the real database. |
+| `SUPABASE_SERVICE_KEY` | — | Preferred backend key (bypasses RLS); falls back to anon. |
+| `SUPABASE_ANON_KEY` | — | Anon key; used if no service key is set. |
 | `GOOGLE_MAPS_API_KEY` | — | Set → real drive-time ETAs (else estimated). |
 | `DELIVERY_CHANNEL` | `console` | `console` \| `telegram` \| `msg91`. |
 | `FRONTEND_URL` | `http://localhost:5173` | Base for `/confirm/<token>` links. |
@@ -204,7 +213,7 @@ Everything is environment-driven (see [`.env.example`](.env.example)). Highlight
 ```bash
 cd backend
 pip install -r requirements-dev.txt
-pytest                # 24 tests: algorithms + endpoint contract + live flow + Supabase path
+pytest                # 26 tests: algorithms + endpoint contract + live flow + Supabase path
 ```
 
 The suite runs fully offline (no Supabase, no network) and verifies the exact

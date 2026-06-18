@@ -16,6 +16,10 @@ def _store():
     return SupabaseStore(FakeSupabaseClient())
 
 
+def test_ping_ok():
+    assert _store().ping() is True
+
+
 def test_hospitals_with_distance_reads_table():
     store = _store()
     rows = store.hospitals_with_distance(26.9124, 75.7873)

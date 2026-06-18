@@ -27,10 +27,13 @@ class Settings:
     version: str = "0.1.0"
 
     # --- Supabase / PostgreSQL + PostGIS -----------------------------------
-    # When both are present the app talks to the real database; otherwise it
-    # falls back to the in-memory store (demo mode).
+    # When a URL + a key are present the app talks to the real database;
+    # otherwise it falls back to the in-memory store (demo mode).
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_key: str = os.getenv("SUPABASE_ANON_KEY", "")
+    # Trusted server-side key. Preferred over the anon key for the backend's
+    # reads/writes (bypasses RLS); keep it secret — never ship it to a client.
+    supabase_service_key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
     database_url: str = os.getenv("DATABASE_URL", "")
 
     # --- Google Maps Distance Matrix (ETA + geocoding) ---------------------
@@ -61,9 +64,14 @@ class Settings:
     )
 
     @property
+    def supabase_active_key(self) -> str:
+        """Key the backend connects with — service-role preferred, anon fallback."""
+        return self.supabase_service_key or self.supabase_key
+
+    @property
     def use_supabase(self) -> bool:
         """True when a real Supabase backend is configured."""
-        return bool(self.supabase_url and self.supabase_key)
+        return bool(self.supabase_url and self.supabase_active_key)
 
     @property
     def use_google_maps(self) -> bool:

@@ -13,6 +13,9 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      # Trusted server-side key (preferred for backend writes; bypasses RLS).
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: GOOGLE_MAPS_API_KEY

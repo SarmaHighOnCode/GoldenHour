@@ -111,3 +111,28 @@ as $$
             d.location,
             ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography);
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Row-Level Security (RLS)
+-- ---------------------------------------------------------------------------
+-- Tables created above have RLS DISABLED by default, so the anon key can read
+-- and write — convenient for the demo/prototype.
+--
+-- Recommended production model:
+--   * Backend uses the SERVICE-ROLE key (SUPABASE_SERVICE_KEY) — bypasses RLS,
+--     so all writes (emergencies, confirmations, donor inserts) go through the
+--     trusted server.
+--   * Frontend uses the anon key with read-only access to just what it needs to
+--     subscribe to via Realtime.
+--
+-- To lock down, enable RLS and add read-only anon policies, e.g.:
+--
+--   alter table confirmation_requests enable row level security;
+--   create policy "anon reads confirmations"
+--     on confirmation_requests for select to anon using (true);
+--
+--   alter table emergency_requests enable row level security;
+--   create policy "anon reads emergencies"
+--     on emergency_requests for select to anon using (true);
+--
+-- (Writes still succeed because the backend connects with the service-role key.)

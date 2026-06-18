@@ -58,8 +58,22 @@ async def root():
 
 @app.get("/health", response_model=HealthResponse, tags=["meta"])
 async def health_check():
+    """Liveness — cheap, no I/O (safe for frequent platform health checks)."""
     mode = "supabase" if settings.use_supabase else "in-memory"
     return HealthResponse(status="ok", version=settings.version, mode=mode)
+
+
+@app.get("/ready", tags=["meta"])
+async def readiness_check():
+    """Readiness — verifies the data layer actually answers (pings the DB).
+
+    Use this after a deploy to confirm the API is really connected to Supabase
+    and not silently running in demo mode. Returns 503 if the store is unreachable.
+    """
+    store = get_store()
+    if not store.ping():
+        raise HTTPException(status_code=503, detail="data layer unreachable")
+    return {"ready": True, "backend": store.backend}
 
 
 @app.post("/emergency", response_model=EmergencyResponse, tags=["emergency"])

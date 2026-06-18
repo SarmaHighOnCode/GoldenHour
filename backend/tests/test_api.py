@@ -18,6 +18,14 @@ def test_health(client):
     assert "version" in body and "mode" in body
 
 
+def test_ready(client):
+    resp = client.get("/ready")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ready"] is True
+    assert body["backend"] == "in-memory"
+
+
 # --- POST /emergency -------------------------------------------------------
 def test_emergency_returns_contract_shape(client):
     resp = _trigger(client)
