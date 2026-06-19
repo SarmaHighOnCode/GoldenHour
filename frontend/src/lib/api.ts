@@ -33,6 +33,16 @@ export interface DonorRegisterResponse {
   donor_id: string;
 }
 
+export interface HospitalConfirmDetailsResponse {
+  hospital_name: string;
+  emergency_type: string;
+  blood_group: string;
+  eta_minutes: number;
+  already_confirmed: boolean;
+  responded: boolean;
+  accepted: boolean;
+}
+
 export interface HospitalConfirmResponse {
   ok: boolean;
   hospital_name: string;
@@ -100,6 +110,15 @@ export const api = {
     });
     if (!res.ok) {
       throw new Error(`Failed to register donor: ${res.statusText}`);
+    }
+    return res.json();
+  },
+
+  // GET /confirm/{token}
+  async getHospitalConfirmDetails(token: string): Promise<HospitalConfirmDetailsResponse> {
+    const res = await fetch(`${BASE_URL}/confirm/${token}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch confirmation details: ${res.statusText}`);
     }
     return res.json();
   },

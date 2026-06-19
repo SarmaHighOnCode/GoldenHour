@@ -1,0 +1,17 @@
+# One-command local backend: `docker compose up`.
+# The API runs in demo mode by default (in-memory store, no external services).
+# To point it at a real Supabase/Maps stack, fill in backend/.env and it is
+# picked up automatically.
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      # Sensible demo defaults even without a .env file present.
+      DELIVERY_CHANNEL: ${DELIVERY_CHANNEL:-console}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    restart: unless-stopped
