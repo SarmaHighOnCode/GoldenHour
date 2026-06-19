@@ -1,9 +1,55 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  body {
-    @apply antialiased text-gray-900 bg-gray-50;
-  }
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  
+  --color-bg-warm: #FBFAF8;
+  --color-surface: #FFFFFF;
+  --color-ink: #1A1714;
+  --color-ink-muted: #6B6560;
+  
+  --color-emergency: #DC2626;
+  --color-emergency-pressed: #B91C1C;
+  --color-success: #059669;
+  --color-pending: #9CA3AF;
+  --color-goldenhour: #F59E0B;
+  
+  --shadow-layered: 0 1px 3px rgba(26, 23, 20, 0.02), 0 8px 24px rgba(26, 23, 20, 0.04);
+}
+
+:root {
+  --color-bg: #FBFAF8;
+  --color-surface: #FFFFFF;
+  --color-ink: #1A1714;
+  --color-ink-muted: #6B6560;
+  
+  --color-emergency: #DC2626;
+  --color-emergency-pressed: #B91C1C;
+  --color-success: #059669;
+  --color-pending: #9CA3AF;
+  --color-goldenhour: #F59E0B;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar for console feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #E5E2DD;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D1CCC4;
 }
