@@ -26,6 +26,7 @@ export default function PatientIntakeView() {
   // Form submission states
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSceneLoaded, setIsSceneLoaded] = useState<boolean>(false);
 
   // Refs for GSAP animations
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
@@ -175,13 +176,48 @@ export default function PatientIntakeView() {
 
   return (
     <div className="w-full">
+      
+      {/* Real-time WebGL shader preloader overlay */}
+      <AnimatePresence>
+        {!isSceneLoaded && (
+          <motion.div
+            key="preloader"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
+            className="fixed inset-0 bg-[#0A0A0F] z-[99999] flex flex-col items-center justify-center space-y-6"
+            style={{ pointerEvents: 'auto' }}
+          >
+            <div className="flex flex-col items-center max-w-sm text-center px-6">
+              {/* Pulse heartbeat SVG */}
+              <svg className="w-12 h-12 text-emergency animate-pulse mb-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+              <h2 className="font-display font-bold text-sm text-dark-ink uppercase tracking-[0.25em] leading-snug">
+                Compiling Volumetric Shaders
+              </h2>
+              <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden mt-5 relative">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 1.2, ease: "easeInOut" }}
+                  className="h-full bg-gradient-to-r from-emergency to-goldenhour" 
+                />
+              </div>
+              <p className="text-[9px] text-dark-ink-muted uppercase tracking-[0.2em] mt-5 animate-pulse">
+                Preloading GPU Textures...
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* =============================================
           SECTION 1: HERO — Full screen dark canvas
           ============================================= */}
       <section className="editorial-section glow-amber glow-crimson grid-overlay relative">
-        {/* Three.js particle canvas */}
-        <HeroScene />
+        {/* Three.js particle canvas with shader compile feedback callback */}
+        <HeroScene onLoaded={() => setIsSceneLoaded(true)} />
 
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto space-y-8">
           {/* Giant display title */}

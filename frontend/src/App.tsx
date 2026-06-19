@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppBar } from './components/ui/AppBar';
+import { CustomCursor } from './components/ui/CustomCursor';
 import PatientIntakeView from './components/PatientIntakeView';
 import PatientResultsView from './components/PatientResultsView';
 import HospitalConfirmPage from './components/HospitalConfirmPage';
@@ -39,6 +40,7 @@ function AppContent() {
           : 'bg-bg-warm text-ink'
       }`}
     >
+      <CustomCursor />
       {/* GoldenHour sunset gradient branding line */}
       {!isHome && (
         <div
