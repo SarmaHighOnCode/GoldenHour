@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
+import { api } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 interface Hospital {
   hospital_id: string;
@@ -12,8 +14,6 @@ interface Hospital {
   status: 'pending' | 'confirmed' | 'declined';
   phone: string;
 }
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export default function PatientResultsView() {
   const { id } = useParams<{ id: string }>();
@@ -88,15 +88,9 @@ export default function PatientResultsView() {
       setHasError(false);
     } else {
       try {
-        const res = await fetch(`${BASE_URL}/emergency/${requestId}/status`);
-        if (res.ok) {
-          const data = await res.json();
-          updateStateFromPayload(data);
-          setHasError(false);
-        } else {
-          console.warn('Status check returned non-200:', res.statusText);
-          setHasError(true);
-        }
+        const data = await api.getEmergencyStatus(requestId);
+        updateStateFromPayload(data);
+        setHasError(false);
       } catch (err) {
         console.error('Network error during status polling:', err);
         setHasError(true);
@@ -104,7 +98,7 @@ export default function PatientResultsView() {
     }
   };
 
-  // Interval polling subscription
+  // Interval polling subscription (serves as fallback if Supabase socket drops)
   useEffect(() => {
     if (!id) return;
 
@@ -125,6 +119,50 @@ export default function PatientResultsView() {
     return () => {
       clearInterval(intervalId);
       clearTimeout(skeletonTimer);
+    };
+  }, [id, isMockMode]);
+
+  // Supabase Realtime subscription (live socket push changes)
+  useEffect(() => {
+    if (!id || isMockMode) return;
+
+    console.log(`Establishing Supabase Realtime channel for request: ${id}`);
+
+    const channel = supabase
+      .channel(`emergency-hospitals-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'hospitals',
+          filter: `request_id=eq.${id}`
+        },
+        (payload: any) => {
+          console.log('Realtime DB update received:', payload);
+          const updatedHospital = payload.new;
+          if (updatedHospital) {
+            setHospitals(prev =>
+              prev.map(h =>
+                h.hospital_id === updatedHospital.hospital_id
+                  ? {
+                      ...h,
+                      status: updatedHospital.status,
+                      eta_minutes: updatedHospital.eta_minutes ?? h.eta_minutes
+                    }
+                  : h
+              )
+            );
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Supabase Realtime subscription status: ${status}`);
+      });
+
+    return () => {
+      console.log(`Teardown Supabase Realtime channel for request: ${id}`);
+      supabase.removeChannel(channel);
     };
   }, [id, isMockMode]);
 

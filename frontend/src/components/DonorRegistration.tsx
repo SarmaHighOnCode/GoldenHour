@@ -5,6 +5,7 @@ import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { Button } from './ui/Button';
+import { api } from '../lib/api';
 
 export default function DonorRegistration() {
   const navigate = useNavigate();
@@ -83,53 +84,24 @@ export default function DonorRegistration() {
 
     setIsSubmitting(true);
 
-    // Mock API Payload matches contract
-    const payload = {
-      name,
-      phone,
-      blood_group: bloodGroup,
-      lat: coords?.lat ?? null,
-      lng: coords?.lng ?? null,
-      last_donated: lastDonated || null,
-    };
-
-    /*
-      TODO: Wire up to real backend POST /donor/register endpoint.
-      
-      POST Body:
-      {
-        "name": string,
-        "phone": string,
-        "blood_group": string,
-        "lat": number | null,
-        "lng": number | null,
-        "last_donated": string | null
-      }
-
-      Expected Response:
-      {
-        "ok": true,
-        "donor_id": string
-      }
-    */
-
     try {
-      const res = await fetch('http://localhost:8000/donor/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const data = await api.registerDonor(
+        name,
+        phone,
+        bloodGroup,
+        coords?.lat ?? null,
+        coords?.lng ?? null,
+        lastDonated || null
+      );
 
-      if (res.ok) {
-        const data = await res.json();
+      if (data && data.ok) {
         setRegisteredId(data.donor_id || 'd42');
         setIsRegistered(true);
       } else {
-        // Fallback for hackathon demo
         simulateRegistrationSuccess();
       }
     } catch (err) {
-      console.warn('Backend server offline. Simulating local registration success.');
+      console.warn('Backend server offline. Simulating local registration success.', err);
       simulateRegistrationSuccess();
     } finally {
       setIsSubmitting(false);

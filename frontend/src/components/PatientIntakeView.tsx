@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
+import { api } from '../lib/api';
 
 export default function PatientIntakeView() {
   const navigate = useNavigate();
@@ -16,6 +17,10 @@ export default function PatientIntakeView() {
   const [locating, setLocating] = useState<boolean>(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Form submission states
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Trigger Geolocation API
   const handleAcquireLocation = () => {
@@ -51,38 +56,30 @@ export default function PatientIntakeView() {
   // Check if all fields are valid for submission
   const isFormValid = coords !== null && emergencyType !== '' && bloodGroup !== '';
 
-  // TODO: Implement real API call on submission
   const dispatchEmergency = async () => {
     if (!isFormValid || !coords) return;
-
-    /*
-      TODO: Wire up to real backend POST /emergency endpoint.
-      
-      POST Body Shape:
-      {
-        "lat": coords.lat,
-        "lng": coords.lng,
-        "emergency_type": emergencyType,
-        "blood_group": bloodGroup
-      }
-
-      Expected Response:
-      {
-        "request_id": string,
-        "hospitals": Hospital[],
-        "donors_alerted": number
-      }
-    */
     
-    // For now, simulate transition and navigate to results page
-    console.log('Emergency Dispatched:', {
-      type: emergencyType,
-      blood: bloodGroup,
-      coords
-    });
-    
-    // Navigate directly to mock test results page
-    navigate('/results/test123');
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const data = await api.triggerEmergency(
+        coords.lat,
+        coords.lng,
+        emergencyType,
+        bloodGroup
+      );
+      if (data && data.request_id) {
+        navigate(`/results/${data.request_id}`);
+      } else {
+        throw new Error('Invalid request ID returned from server.');
+      }
+    } catch (err: any) {
+      console.error('Failed to trigger emergency:', err);
+      setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Form options mapping
@@ -261,12 +258,22 @@ export default function PatientIntakeView() {
           aria-required="true"
         />
 
+        {submitError && (
+          <div 
+            className="bg-red-50 border border-red-100 rounded-xl p-3 text-center text-xs font-bold text-emergency animate-fade-in"
+            role="alert"
+          >
+            {submitError}
+          </div>
+        )}
+
         {/* Dispatch Action Button */}
         <Button
           type="button"
           onClick={dispatchEmergency}
           variant="emergency"
-          disabled={!isFormValid}
+          disabled={!isFormValid || isSubmitting}
+          isLoading={isSubmitting}
           fullWidth
           aria-label="Get emergency help immediately"
           className="mt-2 shadow-md font-extrabold uppercase tracking-wider text-base h-14"

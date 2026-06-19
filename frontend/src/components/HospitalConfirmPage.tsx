@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { api } from '../lib/api';
 
 export default function HospitalConfirmPage() {
   // Read token from URL
@@ -19,45 +20,21 @@ export default function HospitalConfirmPage() {
 
   // Handle Dispatch Decisions
   const handleResponse = async (isAccepted: boolean) => {
+    if (!token) return;
     setIsSubmitting(true);
 
-    const payload = { accepted: isAccepted };
-
-    /*
-      TODO: Wire up to real backend POST /confirm/{token} endpoint.
-      
-      POST Body:
-      {
-        "accepted": boolean
-      }
-
-      Expected Response:
-      {
-        "ok": true,
-        "hospital_name": string,
-        "already_confirmed": boolean
-      }
-    */
-
     try {
-      const res = await fetch(`http://localhost:8000/confirm/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+      const data = await api.confirmHospitalRequest(token, isAccepted);
+      if (data && data.ok) {
         setHospitalName(data.hospital_name || 'SMS Hospital');
         setAlreadyConfirmed(!!data.already_confirmed);
         setAccepted(isAccepted);
         setIsResponded(true);
       } else {
-        // Fallback for hackathon demo
         simulateResponse(isAccepted);
       }
     } catch (e) {
-      console.warn('Backend server offline. Simulating response locally for demo.');
+      console.warn('Backend server offline. Simulating response locally for demo.', e);
       simulateResponse(isAccepted);
     } finally {
       setIsSubmitting(false);
