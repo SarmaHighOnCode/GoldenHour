@@ -33,9 +33,9 @@ export default function PatientResultsView() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
 
-  // Configurable Mock state (defaults to true for reliable demo offline mode)
+  // Mock mode is opt-in — defaults to real API; toggle persisted in localStorage
   const [isMockMode, setIsMockMode] = useState<boolean>(() => {
-    return localStorage.getItem('goldenhour_mock_mode') !== 'false';
+    return localStorage.getItem('goldenhour_mock_mode') === 'true';
   });
 
   const mountTime = useRef<number>(Date.now());
