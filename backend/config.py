@@ -14,6 +14,10 @@ import os
 from dataclasses import dataclass, field
 from typing import List
 
+from dotenv import load_dotenv
+
+load_dotenv()  # loads backend/.env into os.environ before Settings reads it
+
 
 def _env_list(name: str, default: str) -> List[str]:
     raw = os.getenv(name, default)
