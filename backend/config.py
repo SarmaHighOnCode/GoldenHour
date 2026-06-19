@@ -59,6 +59,13 @@ class Settings:
     unconfirmed_fallback_seconds: int = int(os.getenv("UNCONFIRMED_FALLBACK_SECONDS", "180"))
     city_avg_speed_kmph: float = float(os.getenv("CITY_AVG_SPEED_KMPH", "22"))
 
+    # --- OSM startup pre-warm ----------------------------------------------
+    # Semicolon-separated "lat,lng" pairs fetched from Overpass at boot (demo
+    # mode only). Pre-warms the in-memory hospital store so the first emergency
+    # in those areas is instant instead of waiting on an on-demand OSM fetch.
+    # Example: OSM_SEED_COORDS=26.14,91.81;27.47,94.91
+    osm_seed_coords: str = os.getenv("OSM_SEED_COORDS", "")
+
     # --- Link / message delivery -------------------------------------------
     # Where the hospital confirmation link points. The frontend serves
     # /confirm/<token>, so this is the public site URL.

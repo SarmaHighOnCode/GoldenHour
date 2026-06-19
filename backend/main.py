@@ -4,6 +4,7 @@ Thin HTTP layer: each route validates input with a schema, calls one service,
 and returns a schema. All business logic lives in ``services/``; all data access
 lives in ``store.py``. Endpoint shapes match ``API_CONTRACT.md`` exactly.
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -31,10 +32,44 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("goldenhour")
 
 
+async def _prewarm_osm() -> None:
+    """Fetch hospitals from Overpass at startup for OSM_SEED_COORDS locations.
+
+    Runs as a background task so the API is immediately ready — the pre-warm
+    completes in the background. Only fires in in-memory (demo) mode; Supabase
+    already has real data.
+    """
+    from services.hospital_service import _fetch_from_osm
+
+    store = get_store()
+    if not hasattr(store, "bulk_add_hospitals"):
+        return  # Supabase store — skip
+    if not settings.osm_seed_coords:
+        return
+
+    for pair in settings.osm_seed_coords.split(";"):
+        pair = pair.strip()
+        if not pair:
+            continue
+        try:
+            lat_s, lng_s = pair.split(",")
+            lat, lng = float(lat_s.strip()), float(lng_s.strip())
+        except ValueError:
+            logger.warning("OSM_SEED_COORDS: invalid pair %r — expected 'lat,lng'", pair)
+            continue
+        if store.is_region_fetched(lat, lng):
+            continue
+        hospitals = await _fetch_from_osm(lat, lng)
+        if hospitals:
+            store.bulk_add_hospitals(hospitals)
+            store.mark_region_fetched(lat, lng)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     get_store()  # warm the store (seed in-memory, or connect Supabase)
     logger.info("GoldenHour API ready - %s", settings.summary())
+    asyncio.create_task(_prewarm_osm())
     yield
 
 

@@ -32,7 +32,13 @@ logger = logging.getLogger("goldenhour.hospital_service")
 # If the nearest hospital in the store is beyond this, trigger an OSM fetch.
 _NEARBY_THRESHOLD_KM = 75
 _OSM_RADIUS_KM = 30
-_OSM_TIMEOUT = 12  # seconds
+_OSM_TIMEOUT = 20  # seconds per endpoint
+
+# Tried in order — kumi.systems is usually faster than the main instance.
+_OSM_ENDPOINTS = [
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+]
 
 _DEPT_KEYWORDS: Dict[str, List[str]] = {
     "cardiac":   ["cardiac", "cardio", "heart", "cardiology"],
@@ -106,11 +112,11 @@ def _parse_osm_elements(elements: list) -> List[Dict]:
 
 
 async def _fetch_from_osm(lat: float, lng: float) -> List[Dict]:
-    """Query Overpass API for hospitals near lat/lng. Non-blocking via thread."""
+    """Query Overpass for hospitals near lat/lng, trying mirrors in order."""
     r = int(_OSM_RADIUS_KM * 1000)
     a = f"{lat},{lng}"
     query = (
-        f"[out:json][timeout:10];\n(\n"
+        f"[out:json][timeout:15];\n(\n"
         f'  node["amenity"="hospital"](around:{r},{a});\n'
         f'  way["amenity"="hospital"](around:{r},{a});\n'
         f'  node["amenity"="clinic"](around:{r},{a});\n'
@@ -121,29 +127,29 @@ async def _fetch_from_osm(lat: float, lng: float) -> List[Dict]:
         f");\nout center tags;\n"
     )
     payload = urllib.parse.urlencode({"data": query}).encode()
-    req = urllib.request.Request(
-        "https://overpass-api.de/api/interpreter",
-        data=payload,
-        method="POST",
-    )
-    req.add_header("User-Agent", "GoldenHour-Emergency/1.0")
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    logger.info("OSM fetch: lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM)
 
-    def _do_request():
-        with urllib.request.urlopen(req, timeout=_OSM_TIMEOUT) as resp:
-            return json.loads(resp.read())["elements"]
+    for endpoint in _OSM_ENDPOINTS:
+        req = urllib.request.Request(endpoint, data=payload, method="POST")
+        req.add_header("User-Agent", "GoldenHour-Emergency/1.0")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
 
-    try:
-        logger.info("OSM fetch: querying Overpass for lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM)
-        elements = await asyncio.wait_for(
-            asyncio.to_thread(_do_request), timeout=_OSM_TIMEOUT + 2
-        )
-        hospitals = _parse_osm_elements(elements)
-        logger.info("OSM fetch: got %d hospitals", len(hospitals))
-        return hospitals
-    except Exception as exc:
-        logger.warning("OSM fetch failed (%s) — continuing without new hospitals", exc)
-        return []
+        def _do(r=req):
+            with urllib.request.urlopen(r, timeout=_OSM_TIMEOUT) as resp:
+                return json.loads(resp.read())["elements"]
+
+        try:
+            elements = await asyncio.wait_for(
+                asyncio.to_thread(_do), timeout=_OSM_TIMEOUT + 3
+            )
+            hospitals = _parse_osm_elements(elements)
+            logger.info("OSM fetch: %d hospitals from %s", len(hospitals), endpoint)
+            return hospitals
+        except Exception as exc:
+            logger.warning("OSM endpoint %s failed (%s), trying next", endpoint, exc)
+
+    logger.warning("All OSM endpoints failed — no new hospitals added")
+    return []
 
 # emergency_type -> hospital department required to treat it
 _TYPE_TO_DEPARTMENT = {
