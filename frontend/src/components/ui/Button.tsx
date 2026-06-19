@@ -17,16 +17,16 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   // Base classes optimized for emergency gloves (minimum 56px target)
-  const baseStyle = "relative flex items-center justify-center h-14 px-6 rounded-xl font-bold tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-rose-500/30 disabled:opacity-50 disabled:cursor-not-allowed select-none";
+  const baseStyle = "relative flex items-center justify-center h-14 px-6 rounded-xl font-extrabold tracking-wide transition-all focus:outline-none focus-visible:ring-4 disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer";
   
   const widthStyle = fullWidth ? "w-full" : "";
   
   // Custom design token styling matching DESIGN.md
   const variantStyles = {
-    emergency: "bg-emergency text-white hover:bg-emergency-hover focus:ring-red-500/20 active:bg-emergency-pressed shadow-[0_4px_12px_rgba(220,38,38,0.2)]",
-    primary: "bg-ink text-white hover:bg-ink-muted focus:ring-slate-500/20 active:bg-ink shadow-[0_4px_12px_rgba(26,23,20,0.15)]",
-    success: "bg-success text-white hover:opacity-90 focus:ring-emerald-500/20 shadow-[0_4px_12px_rgba(5,150,105,0.2)]",
-    ghost: "bg-transparent text-ink border-2 border-slate-200 hover:bg-slate-100 hover:border-slate-300 focus:ring-slate-500/20"
+    emergency: "bg-emergency text-white hover:bg-red-700 focus-visible:ring-red-500/20 active:bg-emergency-pressed shadow-[0_4px_12px_rgba(220,38,38,0.2)]",
+    primary: "bg-ink text-white hover:bg-ink-muted focus-visible:ring-slate-500/20 active:bg-slate-900 shadow-[0_4px_12px_rgba(26,23,20,0.15)]",
+    success: "bg-success text-white hover:bg-emerald-700 focus-visible:ring-emerald-500/20 active:bg-emerald-800 shadow-[0_4px_12px_rgba(5,150,105,0.2)]",
+    ghost: "bg-transparent text-ink border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 focus-visible:ring-slate-500/20 active:bg-slate-100"
   };
 
   return (

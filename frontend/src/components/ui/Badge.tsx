@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 export interface BadgeProps {
   status: 'pending' | 'confirmed' | 'declined';
@@ -22,7 +23,13 @@ export const Badge: React.FC<BadgeProps> = ({ status, className = '' }) => {
   };
 
   return (
-    <span className={`${baseStyle} ${statusStyles[status]} ${className}`}>
+    <motion.span
+      key={status}
+      initial={status === 'confirmed' ? { scale: 0.8 } : false}
+      animate={status === 'confirmed' ? { scale: [1, 1.25, 0.95, 1.05, 1] } : false}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+      className={`${baseStyle} ${statusStyles[status]} ${className}`}
+    >
       {status === 'pending' && (
         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse" />
       )}
@@ -33,6 +40,6 @@ export const Badge: React.FC<BadgeProps> = ({ status, className = '' }) => {
         <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mr-1.5" />
       )}
       {statusLabels[status]}
-    </span>
+    </motion.span>
   );
 };

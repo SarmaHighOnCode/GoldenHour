@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
+import { api } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 interface Hospital {
   hospital_id: string;
@@ -17,10 +18,10 @@ interface Hospital {
 export default function PatientResultsView() {
   const { id } = useParams<{ id: string }>();
 
-  // State initialized with the exact fake data shape matching the contract
+  // State initialized with all hospitals starting as "pending"
   const [hospitals, setHospitals] = useState<Hospital[]>([
     { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, department_match: true, status: "pending", phone: "+910000000000" },
-    { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, department_match: true, status: "confirmed", phone: "+910000000000" },
+    { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, department_match: true, status: "pending", phone: "+910000000000" },
     { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, department_match: false, status: "pending", phone: "+910000000000" },
   ]);
 
@@ -28,48 +29,144 @@ export default function PatientResultsView() {
   const [donorsAlerted] = useState(5);
   const [donorsResponded, setDonorsResponded] = useState(0);
 
-  // TODO: Replace this simulated hook with real API polling and Supabase Realtime subscription
-  /*
-    TODO Link:
-    For real-time updates:
-    1. Poll GET /emergency/{id}/status every 3 seconds:
-       const res = await fetch(`/api/emergency/${id}/status`);
-       const data = await res.json();
-       setHospitals(data.hospitals);
-       setDonorsResponded(data.donors_responded);
-    2. Alternatively, subscribe to Supabase Realtime changes:
-       supabase
-         .channel('hospitals-status')
-         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'hospitals' }, payload => { ... })
-         .subscribe()
-  */
+  // loading skeleton & error states
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasError, setHasError] = useState<boolean>(false);
 
-  // Hackathon Demo Simulation: transition SMS Hospital (h1) to 'confirmed'
-  // and Manipal Jaipur (h3) to 'declined' over time to show smooth state transition animations.
+  // Configurable Mock state (defaults to true for reliable demo offline mode)
+  const [isMockMode, setIsMockMode] = useState<boolean>(() => {
+    return localStorage.getItem('goldenhour_mock_mode') !== 'false';
+  });
+
+  const mountTime = useRef<number>(Date.now());
+
+  // Save toggle choice in localStorage
   useEffect(() => {
-    // 3 seconds: SMS Hospital gets confirmed
-    const timer1 = setTimeout(() => {
-      setHospitals(prev =>
-        prev.map(h => h.hospital_id === 'h1' ? { ...h, status: 'confirmed' } : h)
-      );
-      setDonorsResponded(1);
-    }, 4000);
+    localStorage.setItem('goldenhour_mock_mode', String(isMockMode));
+  }, [isMockMode]);
 
-    // 6 seconds: Manipal Jaipur gets declined
-    const timer2 = setTimeout(() => {
-      setHospitals(prev =>
-        prev.map(h => h.hospital_id === 'h3' ? { ...h, status: 'declined' } : h)
-      );
-      setDonorsResponded(2);
-    }, 8000);
+  // Process data returned from status payload
+  const updateStateFromPayload = (data: any) => {
+    setDonorsResponded(data.donors_responded ?? 0);
+    if (Array.isArray(data.hospitals)) {
+      setHospitals(prev => {
+        return data.hospitals.map((newH: any) => {
+          const existing = prev.find(h => h.hospital_id === newH.hospital_id);
+          return {
+            hospital_id: newH.hospital_id,
+            name: newH.name,
+            eta_minutes: newH.eta_minutes,
+            status: newH.status,
+            department_match: existing ? existing.department_match : (newH.department_match ?? false),
+            phone: existing ? existing.phone : (newH.phone ?? "+910000000000")
+          };
+        });
+      });
+    }
+  };
+
+  // Poll status endpoint or run offline simulation
+  const pollStatus = async (requestId: string) => {
+    if (isMockMode) {
+      const elapsed = Date.now() - mountTime.current;
+      // After ~4s, Fortis Jaipur flips from pending to confirmed, Manipal Jaipur flips to declined, and responded goes to 2
+      const isAfter4s = elapsed >= 4000;
+      const isAfter8s = elapsed >= 8000;
+
+      const mockPayload = {
+        request_id: requestId,
+        hospitals: [
+          { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, status: "pending" as const },
+          { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, status: isAfter4s ? "confirmed" as const : "pending" as const },
+          { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, status: isAfter8s ? "declined" as const : "pending" as const }
+        ],
+        donors_alerted: 5,
+        donors_responded: isAfter4s ? 2 : 0
+      };
+
+      updateStateFromPayload(mockPayload);
+      setHasError(false);
+    } else {
+      try {
+        const data = await api.getEmergencyStatus(requestId);
+        updateStateFromPayload(data);
+        setHasError(false);
+      } catch (err) {
+        console.error('Network error during status polling:', err);
+        setHasError(true);
+      }
+    }
+  };
+
+  // Interval polling subscription (serves as fallback if Supabase socket drops)
+  useEffect(() => {
+    if (!id) return;
+
+    setIsLoading(true);
+    setHasError(false);
+
+    // Initial 1.2s delay for a premium skeleton load animation
+    const skeletonTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1200);
+
+    pollStatus(id);
+
+    const intervalId = setInterval(() => {
+      pollStatus(id);
+    }, 3000);
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      clearInterval(intervalId);
+      clearTimeout(skeletonTimer);
     };
-  }, []);
+  }, [id, isMockMode]);
 
-  // Sort: Confirmed float to top, then sorted by ETA (shortest first)
+  // Supabase Realtime subscription (live socket push changes)
+  useEffect(() => {
+    if (!id || isMockMode) return;
+
+    console.log(`Establishing Supabase Realtime channel for request: ${id}`);
+
+    const channel = supabase
+      .channel(`emergency-hospitals-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'hospitals',
+          filter: `request_id=eq.${id}`
+        },
+        (payload: any) => {
+          console.log('Realtime DB update received:', payload);
+          const updatedHospital = payload.new;
+          if (updatedHospital) {
+            setHospitals(prev =>
+              prev.map(h =>
+                h.hospital_id === updatedHospital.hospital_id
+                  ? {
+                      ...h,
+                      status: updatedHospital.status,
+                      eta_minutes: updatedHospital.eta_minutes ?? h.eta_minutes
+                    }
+                  : h
+              )
+            );
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Supabase Realtime subscription status: ${status}`);
+      });
+
+    return () => {
+      console.log(`Teardown Supabase Realtime channel for request: ${id}`);
+      supabase.removeChannel(channel);
+    };
+  }, [id, isMockMode]);
+
+  // Sort: Confirmed float to top, then sorted by ETA (shortest first), declined at the very bottom
   const sortedHospitals = [...hospitals].sort((a, b) => {
     if (a.status === 'confirmed' && b.status !== 'confirmed') return -1;
     if (a.status !== 'confirmed' && b.status === 'confirmed') return 1;
@@ -91,96 +188,176 @@ export default function PatientResultsView() {
           </span>
           <span className="font-extrabold text-lg text-ink">Finding help…</span>
         </div>
-        <span className="text-xs font-semibold text-ink-muted bg-slate-100 px-2.5 py-1 rounded-lg">
-          ID: {id}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsMockMode(!isMockMode);
+              mountTime.current = Date.now(); // reset mock timer on toggle
+            }}
+            className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
+              isMockMode 
+                ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200' 
+                : 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
+            }`}
+          >
+            {isMockMode ? 'MOCK: ON' : 'REAL API'}
+          </button>
+          <span className="text-xs font-semibold text-ink-muted bg-slate-100 px-2.5 py-1 rounded-lg">
+            ID: {id}
+          </span>
+        </div>
       </div>
 
       {/* Hospital Cards (AnimatePresence for layout transition animations) */}
-      <div className="space-y-4">
-        <AnimatePresence>
-          {sortedHospitals.map((h, index) => {
-            const isConfirmed = h.status === 'confirmed';
-            const isDeclined = h.status === 'declined';
-
-            return (
-              <motion.div
-                key={h.hospital_id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 300,
-                  damping: 30,
-                  delay: index * 0.05
-                }}
-              >
-                <Card
-                  animateEntrance={false} // Framer-motion layout handles entrance
-                  className={`transition-all duration-500 border ${
-                    isConfirmed 
-                      ? 'border-emerald-500/40 bg-emerald-50/10 shadow-[0_4px_20px_rgba(5,150,105,0.08)]' 
-                      : isDeclined 
-                      ? 'opacity-40 grayscale border-slate-200/50 bg-slate-50/50'
-                      : 'border-slate-200/60'
-                  }`}
+      <div className="space-y-4" aria-live="polite">
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              key="skeleton-loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4 w-full"
+            >
+              {[1, 2, 3].map((idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-white rounded-2xl p-5 shadow-layered border border-slate-100/50 space-y-4 animate-pulse"
                 >
-                  {/* Glowing amber branding highlight on confirmed card */}
-                  {isConfirmed && (
-                    <div className="absolute top-0 right-0 w-2 h-2 bg-goldenhour rounded-full m-3 animate-pulse" />
-                  )}
-
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-lg text-ink leading-tight">
-                        {h.name}
-                      </h3>
-                      
-                      {/* Subdued / Matched department chip */}
-                      {h.department_match ? (
-                        <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-500/10">
-                          Dept ✓ matched
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                          Dept mismatch
-                        </span>
-                      )}
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2 w-2/3">
+                      <div className="h-5 bg-slate-100 rounded w-5/6" />
+                      <div className="h-3.5 bg-slate-100/80 rounded w-1/3" />
                     </div>
-
-                    <Badge status={h.status} />
+                    <div className="h-6 bg-slate-100 rounded-full w-16" />
                   </div>
+                  <div className="h-5 bg-slate-100 rounded w-28" />
+                  <div className="h-14 bg-slate-100 rounded-xl w-full" />
+                </div>
+              ))}
+            </motion.div>
+          ) : hasError ? (
+            <motion.div
+              key="error-state"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-red-50/50 border border-red-200/40 rounded-2xl p-6 text-center space-y-3"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 text-emergency flex items-center justify-center text-xl font-black mx-auto">
+                !
+              </div>
+              <h3 className="font-extrabold text-ink text-lg leading-tight">Connection Issue</h3>
+              <p className="text-xs text-ink-muted leading-relaxed px-4">
+                We are having trouble contacting the dispatch server. Please check your connection.
+              </p>
+              <button
+                type="button"
+                onClick={() => pollStatus(id || '')}
+                className="text-xs font-black uppercase tracking-wider text-rose-600 hover:text-rose-700 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/25 rounded px-2 py-1 cursor-pointer"
+              >
+                Retry Connection
+              </button>
+            </motion.div>
+          ) : sortedHospitals.length === 0 ? (
+            <motion.div
+              key="empty-state"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-slate-50 border border-slate-200/50 rounded-2xl p-8 text-center space-y-3"
+            >
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xl font-bold mx-auto">
+                ?
+              </div>
+              <h3 className="font-extrabold text-ink text-lg leading-tight">No Responders Found</h3>
+              <p className="text-xs text-ink-muted leading-relaxed px-4">
+                We couldn't locate any hospital dispatch units in your immediate radius.
+              </p>
+            </motion.div>
+          ) : (
+            sortedHospitals.map((h, index) => {
+              const isConfirmed = h.status === 'confirmed';
+              const isDeclined = h.status === 'declined';
 
-                  {/* Badging: ETA & Distance */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-[#F59E0B] bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-500/10">
-                      <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {h.eta_minutes} min ETA
-                    </span>
-                  </div>
-
-                  {/* 1-tap Call Button */}
-                  <a
-                    href={`tel:${h.phone}`}
-                    className={`flex items-center justify-center gap-2 w-full h-14 rounded-xl font-bold text-sm tracking-wider uppercase transition-all duration-300 border ${
-                      isConfirmed
-                        ? 'bg-success hover:opacity-90 text-white border-transparent shadow-[0_4px_15px_rgba(5,150,105,0.25)]'
-                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              return (
+                <motion.div
+                  key={h.hospital_id}
+                  layout
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 300,
+                    damping: 30,
+                    delay: index * 0.04
+                  }}
+                >
+                  <Card
+                    animateEntrance={false}
+                    className={`transition-all duration-500 border ${
+                      isConfirmed 
+                        ? 'border-emerald-500/40 bg-emerald-50/10 shadow-[0_4px_20px_rgba(5,150,105,0.08)]' 
+                        : isDeclined 
+                        ? 'opacity-40 grayscale border-slate-200/50 bg-slate-50/50'
+                        : 'border-slate-200/60'
                     }`}
                   >
-                    <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    {isConfirmed ? 'Establish Call Link' : 'Call Dispatch'}
-                  </a>
-                </Card>
-              </motion.div>
-            );
-          })}
+                    {/* Glowing amber branding highlight on confirmed card */}
+                    {isConfirmed && (
+                      <div className="absolute top-0 right-0 w-2 h-2 bg-goldenhour rounded-full m-3 animate-pulse" />
+                    )}
+
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-lg text-ink leading-tight">
+                          {h.name}
+                        </h3>
+                        
+                        {h.department_match ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-500/10">
+                            Dept ✓ matched
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                            Dept mismatch
+                          </span>
+                        )}
+                      </div>
+
+                      <Badge status={h.status} />
+                    </div>
+
+                    {/* Badging: ETA */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-[#F59E0B] bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-500/10">
+                        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {h.eta_minutes} min ETA
+                      </span>
+                    </div>
+
+                    {/* 1-tap Call Button */}
+                    <a
+                      href={`tel:${h.phone}`}
+                      aria-label={`Call ${h.name} dispatch`}
+                      className={`flex items-center justify-center gap-2 w-full h-14 rounded-xl font-extrabold text-sm tracking-wider uppercase transition-all duration-300 border focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/20 active:scale-[0.98] ${
+                        isConfirmed
+                          ? 'bg-success hover:bg-emerald-700 text-white border-transparent shadow-[0_4px_15px_rgba(5,150,105,0.25)] focus-visible:ring-emerald-500/30'
+                          : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 active:bg-slate-100'
+                      }`}
+                    >
+                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      {isConfirmed ? 'Establish Call Link' : 'Call Dispatch'}
+                    </a>
+                  </Card>
+                </motion.div>
+              );
+            })
+          )}
         </AnimatePresence>
       </div>
 

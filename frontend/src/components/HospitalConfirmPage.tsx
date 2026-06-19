@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { api } from '../lib/api';
 
 export default function HospitalConfirmPage() {
   // Read token from URL
@@ -19,45 +20,21 @@ export default function HospitalConfirmPage() {
 
   // Handle Dispatch Decisions
   const handleResponse = async (isAccepted: boolean) => {
+    if (!token) return;
     setIsSubmitting(true);
 
-    const payload = { accepted: isAccepted };
-
-    /*
-      TODO: Wire up to real backend POST /confirm/{token} endpoint.
-      
-      POST Body:
-      {
-        "accepted": boolean
-      }
-
-      Expected Response:
-      {
-        "ok": true,
-        "hospital_name": string,
-        "already_confirmed": boolean
-      }
-    */
-
     try {
-      const res = await fetch(`http://localhost:8000/confirm/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+      const data = await api.confirmHospitalRequest(token, isAccepted);
+      if (data && data.ok) {
         setHospitalName(data.hospital_name || 'SMS Hospital');
         setAlreadyConfirmed(!!data.already_confirmed);
         setAccepted(isAccepted);
         setIsResponded(true);
       } else {
-        // Fallback for hackathon demo
         simulateResponse(isAccepted);
       }
     } catch (e) {
-      console.warn('Backend server offline. Simulating response locally for demo.');
+      console.warn('Backend server offline. Simulating response locally for demo.', e);
       simulateResponse(isAccepted);
     } finally {
       setIsSubmitting(false);
@@ -182,7 +159,7 @@ export default function HospitalConfirmPage() {
               <button
                 type="button"
                 onClick={() => setAlreadyConfirmed(!alreadyConfirmed)}
-                className="text-[10px] font-black tracking-widest uppercase text-slate-400 hover:text-ink transition-colors border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none"
+                className="text-[10px] font-black tracking-widest uppercase text-slate-400 hover:text-ink hover:bg-slate-50 transition-colors border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/20 cursor-pointer"
               >
                 {alreadyConfirmed ? 'Simulate Available Request' : 'Simulate Already-Routed State'}
               </button>
@@ -229,7 +206,7 @@ export default function HospitalConfirmPage() {
 
             <button
               onClick={() => setIsResponded(false)}
-              className="text-xs text-slate-400 hover:text-ink font-bold focus:outline-none"
+              className="text-xs text-slate-400 hover:text-ink font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/20 rounded px-2 py-1 cursor-pointer"
             >
               Reset Simulation State
             </button>
