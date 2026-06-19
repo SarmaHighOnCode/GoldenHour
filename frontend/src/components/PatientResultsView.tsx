@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
 
 interface Hospital {
   hospital_id: string;
@@ -14,13 +13,15 @@ interface Hospital {
   phone: string;
 }
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export default function PatientResultsView() {
   const { id } = useParams<{ id: string }>();
 
-  // State initialized with the exact fake data shape matching the contract
+  // State initialized with all hospitals starting as "pending"
   const [hospitals, setHospitals] = useState<Hospital[]>([
     { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, department_match: true, status: "pending", phone: "+910000000000" },
-    { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, department_match: true, status: "confirmed", phone: "+910000000000" },
+    { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, department_match: true, status: "pending", phone: "+910000000000" },
     { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, department_match: false, status: "pending", phone: "+910000000000" },
   ]);
 
@@ -28,48 +29,89 @@ export default function PatientResultsView() {
   const [donorsAlerted] = useState(5);
   const [donorsResponded, setDonorsResponded] = useState(0);
 
-  // TODO: Replace this simulated hook with real API polling and Supabase Realtime subscription
-  /*
-    TODO Link:
-    For real-time updates:
-    1. Poll GET /emergency/{id}/status every 3 seconds:
-       const res = await fetch(`/api/emergency/${id}/status`);
-       const data = await res.json();
-       setHospitals(data.hospitals);
-       setDonorsResponded(data.donors_responded);
-    2. Alternatively, subscribe to Supabase Realtime changes:
-       supabase
-         .channel('hospitals-status')
-         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'hospitals' }, payload => { ... })
-         .subscribe()
-  */
+  // Configurable Mock state (defaults to true for reliable demo offline mode)
+  const [isMockMode, setIsMockMode] = useState<boolean>(() => {
+    return localStorage.getItem('goldenhour_mock_mode') !== 'false';
+  });
 
-  // Hackathon Demo Simulation: transition SMS Hospital (h1) to 'confirmed'
-  // and Manipal Jaipur (h3) to 'declined' over time to show smooth state transition animations.
+  const mountTime = useRef<number>(Date.now());
+
+  // Save toggle choice in localStorage
   useEffect(() => {
-    // 3 seconds: SMS Hospital gets confirmed
-    const timer1 = setTimeout(() => {
-      setHospitals(prev =>
-        prev.map(h => h.hospital_id === 'h1' ? { ...h, status: 'confirmed' } : h)
-      );
-      setDonorsResponded(1);
-    }, 4000);
+    localStorage.setItem('goldenhour_mock_mode', String(isMockMode));
+  }, [isMockMode]);
 
-    // 6 seconds: Manipal Jaipur gets declined
-    const timer2 = setTimeout(() => {
-      setHospitals(prev =>
-        prev.map(h => h.hospital_id === 'h3' ? { ...h, status: 'declined' } : h)
-      );
-      setDonorsResponded(2);
-    }, 8000);
+  // Process data returned from status payload
+  const updateStateFromPayload = (data: any) => {
+    setDonorsResponded(data.donors_responded ?? 0);
+    if (Array.isArray(data.hospitals)) {
+      setHospitals(prev => {
+        return data.hospitals.map((newH: any) => {
+          const existing = prev.find(h => h.hospital_id === newH.hospital_id);
+          return {
+            hospital_id: newH.hospital_id,
+            name: newH.name,
+            eta_minutes: newH.eta_minutes,
+            status: newH.status,
+            department_match: existing ? existing.department_match : (newH.department_match ?? false),
+            phone: existing ? existing.phone : (newH.phone ?? "+910000000000")
+          };
+        });
+      });
+    }
+  };
+
+  // Poll status endpoint or run offline simulation
+  const pollStatus = async (requestId: string) => {
+    if (isMockMode) {
+      const elapsed = Date.now() - mountTime.current;
+      // After ~4s, Fortis Jaipur flips from pending to confirmed, Manipal Jaipur flips to declined, and responded goes to 2
+      const isAfter4s = elapsed >= 4000;
+      const isAfter8s = elapsed >= 8000;
+
+      const mockPayload = {
+        request_id: requestId,
+        hospitals: [
+          { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, status: "pending" as const },
+          { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, status: isAfter4s ? "confirmed" as const : "pending" as const },
+          { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, status: isAfter8s ? "declined" as const : "pending" as const }
+        ],
+        donors_alerted: 5,
+        donors_responded: isAfter4s ? 2 : 0
+      };
+
+      updateStateFromPayload(mockPayload);
+    } else {
+      try {
+        const res = await fetch(`${BASE_URL}/emergency/${requestId}/status`);
+        if (res.ok) {
+          const data = await res.json();
+          updateStateFromPayload(data);
+        } else {
+          console.warn('Status check returned non-200:', res.statusText);
+        }
+      } catch (err) {
+        console.error('Network error during status polling:', err);
+      }
+    }
+  };
+
+  // Interval polling subscription
+  useEffect(() => {
+    if (!id) return;
+
+    pollStatus(id);
+
+    const intervalId = setInterval(() => {
+      pollStatus(id);
+    }, 3000);
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      clearInterval(intervalId);
     };
-  }, []);
+  }, [id, isMockMode]);
 
-  // Sort: Confirmed float to top, then sorted by ETA (shortest first)
+  // Sort: Confirmed float to top, then sorted by ETA (shortest first), declined at the very bottom
   const sortedHospitals = [...hospitals].sort((a, b) => {
     if (a.status === 'confirmed' && b.status !== 'confirmed') return -1;
     if (a.status !== 'confirmed' && b.status === 'confirmed') return 1;
@@ -91,9 +133,25 @@ export default function PatientResultsView() {
           </span>
           <span className="font-extrabold text-lg text-ink">Finding help…</span>
         </div>
-        <span className="text-xs font-semibold text-ink-muted bg-slate-100 px-2.5 py-1 rounded-lg">
-          ID: {id}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsMockMode(!isMockMode);
+              mountTime.current = Date.now(); // reset mock timer on toggle
+            }}
+            className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
+              isMockMode 
+                ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200' 
+                : 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
+            }`}
+          >
+            {isMockMode ? 'MOCK: ON' : 'REAL API'}
+          </button>
+          <span className="text-xs font-semibold text-ink-muted bg-slate-100 px-2.5 py-1 rounded-lg">
+            ID: {id}
+          </span>
+        </div>
       </div>
 
       {/* Hospital Cards (AnimatePresence for layout transition animations) */}
