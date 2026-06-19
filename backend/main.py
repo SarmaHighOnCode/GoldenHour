@@ -39,7 +39,7 @@ async def _prewarm_osm() -> None:
     completes in the background. Only fires in in-memory (demo) mode; Supabase
     already has real data.
     """
-    from services.hospital_service import _fetch_from_osm
+    from services.hospital_service import _fetch_hospitals_nearby as _fetch_from_osm
 
     store = get_store()
     if not hasattr(store, "bulk_add_hospitals"):

@@ -111,6 +111,80 @@ def _parse_osm_elements(elements: list) -> List[Dict]:
     return hospitals
 
 
+def _parse_places_results(results: list) -> List[Dict]:
+    """Convert Google Places Nearby Search results to hospital dicts."""
+    rng = random.Random()
+    seen: set = set()
+    hospitals: List[Dict] = []
+    for place in results:
+        name = place.get("name")
+        if not name or name.lower() in seen:
+            continue
+        depts = _assign_departments(name)
+        if not depts:
+            continue
+        seen.add(name.lower())
+        loc = place.get("geometry", {}).get("location", {})
+        h_lat, h_lng = loc.get("lat"), loc.get("lng")
+        if h_lat is None or h_lng is None:
+            continue
+        place_id = place.get("place_id", "")
+        hospitals.append({
+            "id": f"gp-{place_id}",
+            "name": name,
+            "lat": round(h_lat, 5),
+            "lng": round(h_lng, 5),
+            "departments": depts,
+            "beds_available": rng.randint(3, 15),
+            "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
+            "phone": "+910000000000",
+            "contact_phone": "+910000000000",
+        })
+    return hospitals
+
+
+async def _fetch_from_google_places(lat: float, lng: float) -> List[Dict]:
+    """Query Google Places Nearby Search. Requires GOOGLE_MAPS_API_KEY."""
+    if not settings.google_maps_api_key:
+        return []
+    radius_m = int(_OSM_RADIUS_KM * 1000)
+    params = urllib.parse.urlencode({
+        "location": f"{lat},{lng}",
+        "radius": radius_m,
+        "type": "hospital",
+        "key": settings.google_maps_api_key,
+    })
+    url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?{params}"
+
+    def _do():
+        req = urllib.request.Request(url)
+        req.add_header("User-Agent", "GoldenHour-Emergency/1.0")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read())
+
+    try:
+        logger.info("Google Places fetch: lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM)
+        data = await asyncio.wait_for(asyncio.to_thread(_do), timeout=12)
+        if data.get("status") not in ("OK", "ZERO_RESULTS"):
+            logger.warning("Google Places error: %s", data.get("status"))
+            return []
+        hospitals = _parse_places_results(data.get("results", []))
+        logger.info("Google Places fetch: %d hospitals", len(hospitals))
+        return hospitals
+    except Exception as exc:
+        logger.warning("Google Places fetch failed (%s) — falling back to OSM", exc)
+        return []
+
+
+async def _fetch_hospitals_nearby(lat: float, lng: float) -> List[Dict]:
+    """Google Places first (fast + accurate), Overpass as free fallback."""
+    if settings.google_maps_api_key:
+        hospitals = await _fetch_from_google_places(lat, lng)
+        if hospitals:
+            return hospitals
+    return await _fetch_from_osm(lat, lng)
+
+
 async def _fetch_from_osm(lat: float, lng: float) -> List[Dict]:
     """Query Overpass for hospitals near lat/lng, trying mirrors in order."""
     r = int(_OSM_RADIUS_KM * 1000)
@@ -207,7 +281,7 @@ async def rank_hospitals(
         and hasattr(store, "is_region_fetched")
         and not store.is_region_fetched(lat, lng)
     ):
-        osm = await _fetch_from_osm(lat, lng)
+        osm = await _fetch_hospitals_nearby(lat, lng)
         if osm:
             store.bulk_add_hospitals(osm)
             store.mark_region_fetched(lat, lng)
