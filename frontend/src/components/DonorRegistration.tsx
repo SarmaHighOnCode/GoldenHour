@@ -227,7 +227,7 @@ export default function DonorRegistration() {
                 >
                   {coords ? (
                     <span className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-white animate-[bounce_0.5s_ease]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                       Coverage locked
@@ -243,16 +243,60 @@ export default function DonorRegistration() {
                   )}
                 </Button>
 
+                {!coords && !locating && (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoords({ lat: 26.9124, lng: 75.7873 });
+                        setLocationError(null);
+                      }}
+                      className="text-[11px] text-ink-muted hover:text-emerald-600 transition-colors font-medium underline cursor-pointer"
+                    >
+                      Or use demo location (Jaipur)
+                    </button>
+                  </div>
+                )}
+
                 {coords && (
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
                     <p className="text-[10px] font-mono text-slate-400">
                       Anchored: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setCoords(null)}
+                      className="text-[10px] text-rose-500 hover:text-rose-700 underline font-semibold mt-1 focus:outline-none cursor-pointer"
+                    >
+                      Clear location
+                    </button>
                   </div>
                 )}
 
                 {locationError && (
-                  <p className="text-xs font-bold text-emergency text-center">{locationError}</p>
+                  <div className="bg-red-50 border border-red-100/50 rounded-xl p-3 text-center space-y-2">
+                    <p className="text-xs font-bold text-emergency">{locationError}</p>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleGPSFetch}
+                        className="text-xs text-rose-600 hover:text-rose-700 font-extrabold underline focus:outline-none cursor-pointer"
+                      >
+                        Retry Search
+                      </button>
+                      <span className="text-xs text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCoords({ lat: 26.9124, lng: 75.7873 });
+                          setLocationError(null);
+                        }}
+                        className="text-xs text-emerald-600 hover:text-emerald-700 font-extrabold underline focus:outline-none cursor-pointer"
+                      >
+                        Use Demo Location
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 

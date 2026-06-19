@@ -154,6 +154,21 @@ export default function PatientIntakeView() {
             )}
           </Button>
 
+          {!coords && !locating && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setCoords({ lat: 26.9124, lng: 75.7873 });
+                  setLocationError(null);
+                }}
+                className="text-[11px] text-ink-muted hover:text-emerald-600 transition-colors font-medium underline cursor-pointer"
+              >
+                Or use demo location (Jaipur)
+              </button>
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             {coords && (
               <motion.div
@@ -168,6 +183,13 @@ export default function PatientIntakeView() {
                 <p className="text-[11px] font-mono text-slate-400 mt-0.5">
                   Lat: {coords.lat} &middot; Lng: {coords.lng}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setCoords(null)}
+                  className="text-[10px] text-rose-500 hover:text-rose-700 underline font-semibold mt-1.5 focus:outline-none cursor-pointer"
+                >
+                  Clear location
+                </button>
               </motion.div>
             )}
 
@@ -176,18 +198,31 @@ export default function PatientIntakeView() {
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="bg-red-50 border border-red-100/50 rounded-xl p-3 text-center space-y-1.5"
+                className="bg-red-50 border border-red-100/50 rounded-xl p-3 text-center space-y-2"
               >
                 <p className="text-xs font-bold text-emergency">
                   {locationError}
                 </p>
-                <button
-                  type="button"
-                  onClick={handleAcquireLocation}
-                  className="text-xs text-rose-600 hover:text-rose-700 font-extrabold underline focus:outline-none"
-                >
-                  Retry Location Search
-                </button>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAcquireLocation}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-extrabold underline focus:outline-none cursor-pointer"
+                  >
+                    Retry Location Search
+                  </button>
+                  <span className="text-xs text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCoords({ lat: 26.9124, lng: 75.7873 });
+                      setLocationError(null);
+                    }}
+                    className="text-xs text-emerald-600 hover:text-emerald-700 font-extrabold underline focus:outline-none cursor-pointer"
+                  >
+                    Use Demo Location
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
