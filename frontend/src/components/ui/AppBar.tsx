@@ -8,20 +8,20 @@ export const AppBar: React.FC = () => {
         <Link to="/" className="flex items-center gap-2 group">
           <div className="relative flex items-center justify-center">
             {/* Heartbeat pulse rings for brand visual */}
-            <span className="absolute inline-flex h-9 w-9 rounded-full bg-emergency opacity-10 animate-ping" />
-            <span className="absolute inline-flex h-7.5 w-7.5 rounded-full bg-goldenhour opacity-15 animate-pulse" />
+            <span className="absolute inline-flex h-9 w-9 rounded-full bg-emergency opacity-15 animate-ping" />
+            <span className="absolute inline-flex h-7.5 w-7.5 rounded-full bg-goldenhour opacity-20 animate-pulse" />
             
-            {/* Medulance Ribbon Heart Logo style */}
-            <svg className="w-7 h-7 relative z-10" viewBox="0 0 40 40" fill="none">
-              <path d="M12 26C12 20 18 14 24 14C30 14 31 19 28 23L20 31L16 27" stroke="#06A5E9" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M28 14C28 20 22 26 16 26C10 26 9 21 12 17L20 9L24 13" stroke="#EC1F52" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+            <svg 
+              className="w-5.5 h-5.5 text-emergency relative z-10 filter drop-shadow-[0_0_4px_rgba(220,38,38,0.25)]" 
+              fill="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
           </div>
           
-          <span className="font-black text-lg tracking-tight text-ink flex items-center">
-            Medu<span className="text-emergency">Lance</span>
-            <span className="text-slate-300 font-light mx-1.5 text-base">|</span>
-            <span className="font-black text-ink">Golden<span className="text-goldenhour">Hour</span></span>
+          <span className="font-black text-lg tracking-tight text-ink">
+            Golden<span className="text-goldenhour">Hour</span>
           </span>
         </Link>
 
@@ -31,7 +31,7 @@ export const AppBar: React.FC = () => {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
           </span>
-          <span className="text-[10px] font-black text-success tracking-widest uppercase">System Online</span>
+          <span className="text-[10px] font-black text-success tracking-widest uppercase">Console Active</span>
         </div>
       </div>
     </header>

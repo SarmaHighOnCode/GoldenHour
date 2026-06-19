@@ -28,7 +28,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-bg-warm text-ink flex flex-col antialiased relative selection:bg-goldenhour/25">
-      {/* Memorable Medulance Gradient branding line threaded on very top */}
+      {/* Memorable GoldenHour sunset gradient branding line threaded on very top */}
       <div 
         className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency z-[100]" 
         role="presentation"

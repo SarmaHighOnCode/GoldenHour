@@ -117,7 +117,7 @@ export default function PatientIntakeView() {
             role="region"
             aria-labelledby="intake-heading"
           >
-            {/* Visual Identity Highlight (Medulance red to cyan stripe) */}
+            {/* Visual Identity Highlight (GoldenHour crimson to amber stripe) */}
             <div 
               className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency" 
               role="presentation"
@@ -299,11 +299,11 @@ export default function PatientIntakeView() {
         <div className="md:col-span-7 space-y-6 flex flex-col justify-center text-left">
           <div className="space-y-3">
             <h1 className="text-4xl md:text-5xl font-black tracking-tight text-ink leading-tight">
-              24/7 Emergency Care <br />
-              with <span className="text-emergency">Medu</span><span className="text-goldenhour">Lance</span>
+              24/7 Smart Dispatch <br />
+              with <span className="text-emergency">Golden</span><span className="text-goldenhour">Hour</span>
             </h1>
             <p className="text-lg font-bold text-goldenhour uppercase tracking-widest text-sm">
-              Emergency Service Response Provider
+              Every Second Counts
             </p>
             <p className="text-sm text-ink-muted max-w-lg leading-relaxed">
               Help should be given when it matters the most. Secure immediate routing to matched hospital beds and notify local blood banks/donors instantly.
@@ -313,19 +313,19 @@ export default function PatientIntakeView() {
           {/* Hotline Assist Button */}
           <div className="pt-2">
             <a
-              href="tel:+918882978888"
+              href="tel:112"
               className="inline-flex items-center justify-center gap-3 w-full max-w-sm h-14 border-2 border-emergency text-emergency hover:bg-emergency/5 rounded-xl font-extrabold text-sm tracking-wider uppercase transition-all duration-300 active:scale-[0.98] bg-white shadow-sm"
             >
               <svg className="w-5 h-5 text-emergency animate-pulse" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              Call Helpline: +91 88829 78888
+              Call Hotline: 112
             </a>
           </div>
 
           {/* Animated SVG Scene */}
           <div className="w-full pt-4">
-            <svg viewBox="0 0 600 350" fill="none" className="w-full max-w-lg mx-auto animate-sway rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-[#F0FDF4]/30">
+            <svg viewBox="0 0 600 350" fill="none" className="w-full max-w-lg mx-auto animate-sway rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-[#FFFBEB]/30">
               {/* Sky background */}
               <rect x="0" y="0" width="600" height="350" fill="url(#sky-gradient)" />
               
@@ -360,16 +360,16 @@ export default function PatientIntakeView() {
                 <path d="M246 140 L266 140 L270 145 C272 152 269 160 262 160 L242 160 Z" fill="#E2E8F0" />
                 
                 {/* Red cross banner stripe */}
-                <rect x="30" y="98" width="180" height="26" fill="#EC1F52" />
-                <rect x="210" y="98" width="38" height="26" fill="#EC1F52" />
+                <rect x="30" y="98" width="180" height="26" fill="#DC2626" />
+                <rect x="210" y="98" width="38" height="26" fill="#DC2626" />
                 
                 {/* Circular white plate for cross */}
                 <circle cx="120" cy="111" r="16" fill="#FFFFFF" />
-                <rect x="117" y="101" width="6" height="20" fill="#EC1F52" />
-                <rect x="110" y="108" width="20" height="6" fill="#EC1F52" />
+                <rect x="117" y="101" width="6" height="20" fill="#DC2626" />
+                <rect x="110" y="108" width="20" height="6" fill="#DC2626" />
                 
-                {/* Medulance Cyan stripe on base */}
-                <rect x="30" y="130" width="215" height="10" fill="#06A5E9" />
+                {/* GoldenHour Amber stripe on base */}
+                <rect x="30" y="130" width="215" height="10" fill="#F59E0B" />
                 
                 {/* Windows */}
                 <path d="M200 70 L234 70 C238 70 242 74 243 78 L248 98 C249 104 245 110 239 110 L200 110 Z" fill="#E0F2FE" stroke="#38BDF8" strokeWidth="1.5" />
@@ -377,8 +377,8 @@ export default function PatientIntakeView() {
                 <rect x="50" y="70" width="80" height="40" fill="#E0F2FE" stroke="#38BDF8" strokeWidth="1.5" />
 
                 {/* Beacon lights */}
-                <rect x="135" y="48" width="18" height="12" rx="4" fill="#EC1F52" className="animate-flash-red" />
-                <rect x="165" y="48" width="18" height="12" rx="4" fill="#00E5FF" className="animate-flash-blue" />
+                <rect x="135" y="48" width="18" height="12" rx="4" fill="#DC2626" className="animate-flash-red" />
+                <rect x="165" y="48" width="18" height="12" rx="4" fill="#FBBF24" className="animate-flash-amber" />
                 
                 {/* Wheels */}
                 <g className="animate-wheel">
@@ -409,8 +409,8 @@ export default function PatientIntakeView() {
       {/* Why Choose Us Section */}
       <div className="space-y-6 pt-6">
         <div className="text-center">
-          <h2 className="text-2xl font-black tracking-tight text-ink">Why Choose Us?</h2>
-          <p className="text-xs text-ink-muted mt-1">India's leading smart emergency ambulance response network.</p>
+          <h2 className="text-2xl font-black tracking-tight text-ink">Why Choose GoldenHour?</h2>
+          <p className="text-xs text-ink-muted mt-1">Smart emergency hospital response and donor routing network.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
@@ -419,8 +419,8 @@ export default function PatientIntakeView() {
             <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 text-xl font-bold">
               🏥
             </div>
-            <h3 className="font-extrabold text-sm text-ink leading-tight">Patient First Policy</h3>
-            <p className="text-xs text-ink-muted leading-relaxed">Dedicated focus on clinical care, pre-hospital vitals, and patient safety.</p>
+            <h3 className="font-extrabold text-sm text-ink leading-tight">Pre-Hospital Vitals</h3>
+            <p className="text-xs text-ink-muted leading-relaxed">Real-time vitals tracking during transit helps hospitals prepare for patient arrival.</p>
           </Card>
           
           {/* Card 2 */}
@@ -428,26 +428,26 @@ export default function PatientIntakeView() {
             <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 text-xl font-bold">
               ⏱️
             </div>
-            <h3 className="font-extrabold text-sm text-ink leading-tight">15 Min or Less Response</h3>
-            <p className="text-xs text-ink-muted leading-relaxed">Fast response time backed by GPS dispatch algorithms and smart traffic routing.</p>
+            <h3 className="font-extrabold text-sm text-ink leading-tight">Ultra-Fast Dispatch</h3>
+            <p className="text-xs text-ink-muted leading-relaxed">Route mapping algorithms determine the closest hospital with available beds.</p>
           </Card>
 
           {/* Card 3 */}
           <Card animateEntrance className="border-slate-100 flex flex-col items-center text-center p-5 space-y-3" delayIndex={3}>
             <div className="w-12 h-12 rounded-full bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-500 text-xl font-bold">
-              🌙
+              ⚡
             </div>
-            <h3 className="font-extrabold text-sm text-ink leading-tight">24/7 Helpline Support</h3>
-            <p className="text-xs text-ink-muted leading-relaxed">Dedicated call assistance operators standing by for immediate backup guidance.</p>
+            <h3 className="font-extrabold text-sm text-ink leading-tight">Active Live Sync</h3>
+            <p className="text-xs text-ink-muted leading-relaxed">Direct websocket connection keeps emergency coordinators synced with incoming ETAs.</p>
           </Card>
 
           {/* Card 4 */}
           <Card animateEntrance className="border-slate-100 flex flex-col items-center text-center p-5 space-y-3" delayIndex={4}>
             <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500 text-xl font-bold">
-              🚑
+              🩸
             </div>
-            <h3 className="font-extrabold text-sm text-ink leading-tight">India's Largest Fleet</h3>
-            <p className="text-xs text-ink-muted leading-relaxed">Access to thousands of smart ambulances across major Indian cities.</p>
+            <h3 className="font-extrabold text-sm text-ink leading-tight">Blood Donor Network</h3>
+            <p className="text-xs text-ink-muted leading-relaxed">Instant broadcast alerts to registered blood donors matching the patient's blood type.</p>
           </Card>
         </div>
       </div>
@@ -455,17 +455,17 @@ export default function PatientIntakeView() {
       {/* Core Services Section */}
       <div className="space-y-6 pt-4 pb-12">
         <div className="text-center">
-          <h2 className="text-2xl font-black tracking-tight text-ink">Our Core Services</h2>
-          <p className="text-xs text-ink-muted mt-1">Plan offerings catering to various emergency response use cases.</p>
+          <h2 className="text-2xl font-black tracking-tight text-ink">Our Services</h2>
+          <p className="text-xs text-ink-muted mt-1">Smart integrations serving patient, hospital, and donor networks.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
           {/* Service 1 */}
           <Card animateEntrance className="border-slate-100 p-5 space-y-2.5 flex flex-col justify-between" delayIndex={1}>
             <div>
-              <h3 className="font-black text-base text-ink leading-tight">Individual</h3>
+              <h3 className="font-black text-base text-ink leading-tight">Patient Intake</h3>
               <p className="text-xs text-ink-muted mt-1.5 leading-relaxed">
-                Anyone can register or trigger an emergency dispatch through our web console and mobile application in critical situations.
+                Booking/Dispatch console for emergencies, sending patient vitals and location coords directly to responders.
               </p>
             </div>
             <div className="pt-2 border-t border-slate-50 text-[10px] uppercase font-bold text-emergency">Plan Activated</div>
@@ -474,9 +474,9 @@ export default function PatientIntakeView() {
           {/* Service 2 */}
           <Card animateEntrance className="border-slate-100 p-5 space-y-2.5 flex flex-col justify-between" delayIndex={2}>
             <div>
-              <h3 className="font-black text-base text-ink leading-tight">Hospital</h3>
+              <h3 className="font-black text-base text-ink leading-tight">Hospital Portal</h3>
               <p className="text-xs text-ink-muted mt-1.5 leading-relaxed">
-                We manage end-to-end pre-hospital emergency care routing, providing hospitals with real-time ETA and matching diagnostics.
+                Pre-hospital care and bed management Console for trauma centers to accept and coordinate incoming emergency requests.
               </p>
             </div>
             <div className="pt-2 border-t border-slate-50 text-[10px] uppercase font-bold text-goldenhour">Active Network</div>
@@ -485,23 +485,23 @@ export default function PatientIntakeView() {
           {/* Service 3 */}
           <Card animateEntrance className="border-slate-100 p-5 space-y-2.5 flex flex-col justify-between" delayIndex={3}>
             <div>
-              <h3 className="font-black text-base text-ink leading-tight">Enterprise</h3>
+              <h3 className="font-black text-base text-ink leading-tight">Donor Circle</h3>
               <p className="text-xs text-ink-muted mt-1.5 leading-relaxed">
-                Dedicated emergency response service, corporate health checkups, and ambulance standby plans for companies.
+                Voluntary blood donor registration and matching, connecting donors with local emergency dispatch coordinates.
               </p>
             </div>
-            <div className="pt-2 border-t border-slate-50 text-[10px] uppercase font-bold text-slate-400">Request Custom Plan</div>
+            <div className="pt-2 border-t border-slate-50 text-[10px] uppercase font-bold text-goldenhour">Active Network</div>
           </Card>
 
           {/* Service 4 */}
           <Card animateEntrance className="border-slate-100 p-5 space-y-2.5 flex flex-col justify-between" delayIndex={4}>
             <div>
-              <h3 className="font-black text-base text-ink leading-tight">Government</h3>
+              <h3 className="font-black text-base text-ink leading-tight">Emergency API</h3>
               <p className="text-xs text-ink-muted mt-1.5 leading-relaxed">
-                Public-Private Partnerships (PPP) enabling smart integrations with public medical emergency systems for rapid reach.
+                Public-private partnerships and API routing integrations for other systems to communicate with our emergency channels.
               </p>
             </div>
-            <div className="pt-2 border-t border-slate-50 text-[10px] uppercase font-bold text-slate-400">PPP Integration</div>
+            <div className="pt-2 border-t border-slate-50 text-[10px] uppercase font-bold text-slate-400">REST / Realtime</div>
           </Card>
         </div>
       </div>

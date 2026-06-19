@@ -93,9 +93,7 @@ export default function HospitalConfirmPage() {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emergency" />
           </span>
           <span className="font-black text-sm tracking-tight text-ink flex items-center justify-center">
-            Medu<span className="text-emergency">Lance</span>
-            <span className="text-slate-300 font-light mx-1 text-xs">|</span>
-            <span className="font-black text-ink">Golden<span className="text-goldenhour">Hour</span></span>
+            Golden<span className="text-emergency">Hour</span>
           </span>
         </div>
         

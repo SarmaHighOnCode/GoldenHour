@@ -138,7 +138,7 @@ export default function DonorRegistration() {
         role="region"
         aria-labelledby="donor-heading"
       >
-        {/* Visual Identity Highlight (Medulance red to cyan stripe) */}
+        {/* Visual Identity Highlight (GoldenHour crimson to amber stripe) */}
         <div 
           className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency" 
           role="presentation"
