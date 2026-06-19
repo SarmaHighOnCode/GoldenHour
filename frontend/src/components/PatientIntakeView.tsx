@@ -107,13 +107,22 @@ export default function PatientIntakeView() {
   ];
 
   return (
-    <Card className="w-full select-none" animateEntrance delayIndex={0}>
+    <Card 
+      className="w-full relative shadow-layered select-none" 
+      animateEntrance 
+      delayIndex={0}
+      role="region"
+      aria-labelledby="intake-heading"
+    >
       {/* Visual Identity Highlight (Subtle Amber "Golden Hour" Accent Indicator) */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 via-goldenhour to-rose-500" />
+      <div 
+        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 via-goldenhour to-rose-500" 
+        role="presentation"
+      />
       
       {/* Header Headline */}
-      <div className="text-center space-y-2 mb-8 pt-2">
-        <h2 className="text-3xl font-extrabold tracking-tight text-ink leading-tight">
+      <div className="text-center space-y-2 mb-6 pt-2">
+        <h2 id="intake-heading" className="text-3xl font-extrabold tracking-tight text-ink leading-tight">
           Emergency? Get help now.
         </h2>
         <p className="text-sm text-ink-muted leading-relaxed px-2">
@@ -121,7 +130,7 @@ export default function PatientIntakeView() {
         </p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Geolocation Lock Button */}
         <div className="space-y-2">
           <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider">
@@ -134,18 +143,19 @@ export default function PatientIntakeView() {
             isLoading={locating}
             variant={coords ? 'success' : 'ghost'}
             fullWidth
-            className="transition-all duration-300"
+            aria-label={coords ? "Location secured" : "Pin my current location using browser GPS"}
+            className="transition-all duration-300 h-14 rounded-xl"
           >
             {coords ? (
               <span className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-white animate-[bounce_0.5s_ease]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-white animate-[bounce_0.5s_ease]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
                 Location locked
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -162,7 +172,8 @@ export default function PatientIntakeView() {
                   setCoords({ lat: 26.9124, lng: 75.7873 });
                   setLocationError(null);
                 }}
-                className="text-[11px] text-ink-muted hover:text-emerald-600 transition-colors font-medium underline cursor-pointer"
+                className="text-[11px] text-ink-muted hover:text-emerald-600 transition-colors font-medium underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 rounded px-1.5 py-0.5"
+                aria-label="Use mock Jaipur location coordinates for testing"
               >
                 Or use demo location (Jaipur)
               </button>
@@ -180,13 +191,14 @@ export default function PatientIntakeView() {
                 <p className="text-xs font-semibold text-ink-muted">
                   Coordinates Secured
                 </p>
-                <p className="text-[11px] font-mono text-slate-400 mt-0.5">
+                <p className="text-[11px] font-mono text-slate-400 mt-0.5 select-all">
                   Lat: {coords.lat} &middot; Lng: {coords.lng}
                 </p>
                 <button
                   type="button"
                   onClick={() => setCoords(null)}
-                  className="text-[10px] text-rose-500 hover:text-rose-700 underline font-semibold mt-1.5 focus:outline-none cursor-pointer"
+                  className="text-[10px] text-rose-500 hover:text-rose-700 underline font-bold mt-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30 rounded px-1.5 cursor-pointer"
+                  aria-label="Clear current coordinates"
                 >
                   Clear location
                 </button>
@@ -199,6 +211,7 @@ export default function PatientIntakeView() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 className="bg-red-50 border border-red-100/50 rounded-xl p-3 text-center space-y-2"
+                role="alert"
               >
                 <p className="text-xs font-bold text-emergency">
                   {locationError}
@@ -207,18 +220,20 @@ export default function PatientIntakeView() {
                   <button
                     type="button"
                     onClick={handleAcquireLocation}
-                    className="text-xs text-rose-600 hover:text-rose-700 font-extrabold underline focus:outline-none cursor-pointer"
+                    className="text-xs text-rose-600 hover:text-rose-700 font-extrabold underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 rounded px-1 cursor-pointer"
+                    aria-label="Retry fetching browser location"
                   >
-                    Retry Location Search
+                    Retry Search
                   </button>
-                  <span className="text-xs text-slate-300">|</span>
+                  <span className="text-xs text-slate-300" role="presentation">|</span>
                   <button
                     type="button"
                     onClick={() => {
                       setCoords({ lat: 26.9124, lng: 75.7873 });
                       setLocationError(null);
                     }}
-                    className="text-xs text-emerald-600 hover:text-emerald-700 font-extrabold underline focus:outline-none cursor-pointer"
+                    className="text-xs text-emerald-600 hover:text-emerald-700 font-extrabold underline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 rounded px-1 cursor-pointer"
+                    aria-label="Fallback to Jaipur demo coordinates"
                   >
                     Use Demo Location
                   </button>
@@ -234,6 +249,7 @@ export default function PatientIntakeView() {
           value={emergencyType}
           onChange={(e) => setEmergencyType(e.target.value)}
           options={typeOptions}
+          aria-required="true"
         />
 
         {/* Blood Group Selection */}
@@ -242,6 +258,7 @@ export default function PatientIntakeView() {
           value={bloodGroup}
           onChange={(e) => setBloodGroup(e.target.value)}
           options={bloodOptions}
+          aria-required="true"
         />
 
         {/* Dispatch Action Button */}
@@ -251,10 +268,11 @@ export default function PatientIntakeView() {
           variant="emergency"
           disabled={!isFormValid}
           fullWidth
-          className="mt-4 shadow-md font-extrabold uppercase tracking-wider text-base"
+          aria-label="Get emergency help immediately"
+          className="mt-2 shadow-md font-extrabold uppercase tracking-wider text-base h-14"
         >
           <span className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             GET HELP

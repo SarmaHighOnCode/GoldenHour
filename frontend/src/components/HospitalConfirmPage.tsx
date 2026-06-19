@@ -182,7 +182,7 @@ export default function HospitalConfirmPage() {
               <button
                 type="button"
                 onClick={() => setAlreadyConfirmed(!alreadyConfirmed)}
-                className="text-[10px] font-black tracking-widest uppercase text-slate-400 hover:text-ink transition-colors border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none"
+                className="text-[10px] font-black tracking-widest uppercase text-slate-400 hover:text-ink hover:bg-slate-50 transition-colors border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/20 cursor-pointer"
               >
                 {alreadyConfirmed ? 'Simulate Available Request' : 'Simulate Already-Routed State'}
               </button>
@@ -229,7 +229,7 @@ export default function HospitalConfirmPage() {
 
             <button
               onClick={() => setIsResponded(false)}
-              className="text-xs text-slate-400 hover:text-ink font-bold focus:outline-none"
+              className="text-xs text-slate-400 hover:text-ink font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/20 rounded px-2 py-1 cursor-pointer"
             >
               Reset Simulation State
             </button>

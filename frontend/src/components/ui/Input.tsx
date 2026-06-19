@@ -23,13 +23,18 @@ export const Input: React.FC<InputProps> = ({
       </label>
       <input
         id={id}
-        className={`w-full h-14 bg-white border-2 border-slate-200 focus:border-ink rounded-xl px-4 text-sm font-semibold text-ink placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-500/10 transition-all ${
-          error ? 'border-emergency focus:border-emergency focus:ring-red-500/10' : ''
+        className={`w-full h-14 bg-white border-2 border-slate-200 focus:border-ink rounded-xl px-4 text-sm font-semibold text-ink placeholder-slate-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/15 transition-all ${
+          error ? 'border-emergency focus:border-emergency focus-visible:ring-red-500/15' : ''
         } ${className}`}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-error` : undefined}
         {...props}
       />
       {error && (
-        <p className="text-xs text-emergency font-bold tracking-wide mt-1 select-none">
+        <p 
+          id={`${id}-error`} 
+          className="text-xs text-emergency font-bold tracking-wide mt-1 select-none"
+        >
           {error}
         </p>
       )}

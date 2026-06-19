@@ -158,9 +158,18 @@ export default function DonorRegistration() {
   const isButtonDisabled = !name.trim() || !phone.trim() || !bloodGroup;
 
   return (
-    <Card className="w-full relative" animateEntrance delayIndex={0}>
+    <Card 
+      className="w-full relative shadow-layered select-none" 
+      animateEntrance 
+      delayIndex={0}
+      role="region"
+      aria-labelledby="donor-heading"
+    >
       {/* Visual Identity Highlight (Subtle Amber "Golden Hour" Accent Indicator) */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-goldenhour to-amber-500" />
+      <div 
+        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-goldenhour to-amber-500" 
+        role="presentation"
+      />
 
       <AnimatePresence mode="wait">
         {!isRegistered ? (
@@ -169,11 +178,11 @@ export default function DonorRegistration() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="space-y-6"
+            className="space-y-5"
           >
             {/* Header / Hero */}
-            <div className="text-center space-y-2 mb-6 pt-2">
-              <h2 className="text-3xl font-extrabold tracking-tight text-ink leading-tight">
+            <div className="text-center space-y-2 mb-4 pt-2">
+              <h2 id="donor-heading" className="text-3xl font-extrabold tracking-tight text-ink leading-tight">
                 Become a donor. <span className="bg-gradient-to-r from-[#F59E0B] to-amber-600 bg-clip-text text-transparent">Save a life.</span>
               </h2>
               <p className="text-sm text-ink-muted leading-relaxed px-4">
@@ -181,7 +190,7 @@ export default function DonorRegistration() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {/* Name Input */}
               <Input
                 label="Full Name"
@@ -190,6 +199,8 @@ export default function DonorRegistration() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 error={errors.name}
+                required
+                aria-required="true"
               />
 
               {/* Phone Input */}
@@ -200,6 +211,8 @@ export default function DonorRegistration() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 error={errors.phone}
+                required
+                aria-required="true"
               />
 
               {/* Blood Group Selector */}
@@ -209,6 +222,8 @@ export default function DonorRegistration() {
                 onChange={(e) => setBloodGroup(e.target.value)}
                 options={bloodOptions}
                 error={errors.blood}
+                required
+                aria-required="true"
               />
 
               {/* GPS Coordinates Locker */}
@@ -223,18 +238,19 @@ export default function DonorRegistration() {
                   isLoading={locating}
                   variant={coords ? 'success' : 'ghost'}
                   fullWidth
-                  className="transition-all duration-300"
+                  aria-label={coords ? "Coverage location secured" : "Lock rescue coverage radius using GPS location"}
+                  className="transition-all duration-300 h-14 rounded-xl"
                 >
                   {coords ? (
                     <span className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-white animate-[bounce_0.5s_ease]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-white animate-[bounce_0.5s_ease]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                       Coverage locked
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
@@ -251,7 +267,8 @@ export default function DonorRegistration() {
                         setCoords({ lat: 26.9124, lng: 75.7873 });
                         setLocationError(null);
                       }}
-                      className="text-[11px] text-ink-muted hover:text-emerald-600 transition-colors font-medium underline cursor-pointer"
+                      className="text-[11px] text-ink-muted hover:text-emerald-600 transition-colors font-medium underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 rounded px-1.5 py-0.5"
+                      aria-label="Use mock Jaipur location coordinates for coverage"
                     >
                       Or use demo location (Jaipur)
                     </button>
@@ -260,13 +277,14 @@ export default function DonorRegistration() {
 
                 {coords && (
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
-                    <p className="text-[10px] font-mono text-slate-400">
+                    <p className="text-[10px] font-mono text-slate-400 select-all">
                       Anchored: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
                     </p>
                     <button
                       type="button"
                       onClick={() => setCoords(null)}
-                      className="text-[10px] text-rose-500 hover:text-rose-700 underline font-semibold mt-1 focus:outline-none cursor-pointer"
+                      className="text-[10px] text-rose-500 hover:text-rose-700 underline font-bold mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30 rounded px-1.5 cursor-pointer"
+                      aria-label="Clear location anchor"
                     >
                       Clear location
                     </button>
@@ -274,24 +292,26 @@ export default function DonorRegistration() {
                 )}
 
                 {locationError && (
-                  <div className="bg-red-50 border border-red-100/50 rounded-xl p-3 text-center space-y-2">
+                  <div className="bg-red-50 border border-red-100/50 rounded-xl p-3 text-center space-y-2" role="alert">
                     <p className="text-xs font-bold text-emergency">{locationError}</p>
                     <div className="flex items-center justify-center gap-3">
                       <button
                         type="button"
                         onClick={handleGPSFetch}
-                        className="text-xs text-rose-600 hover:text-rose-700 font-extrabold underline focus:outline-none cursor-pointer"
+                        className="text-xs text-rose-600 hover:text-rose-700 font-extrabold underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 rounded px-1 cursor-pointer"
+                        aria-label="Retry fetching coverage location"
                       >
                         Retry Search
                       </button>
-                      <span className="text-xs text-slate-300">|</span>
+                      <span className="text-xs text-slate-300" role="presentation">|</span>
                       <button
                         type="button"
                         onClick={() => {
                           setCoords({ lat: 26.9124, lng: 75.7873 });
                           setLocationError(null);
                         }}
-                        className="text-xs text-emerald-600 hover:text-emerald-700 font-extrabold underline focus:outline-none cursor-pointer"
+                        className="text-xs text-emerald-600 hover:text-emerald-700 font-extrabold underline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 rounded px-1 cursor-pointer"
+                        aria-label="Fallback to Jaipur coordinates"
                       >
                         Use Demo Location
                       </button>
@@ -315,7 +335,8 @@ export default function DonorRegistration() {
                 disabled={isButtonDisabled || isSubmitting}
                 isLoading={isSubmitting}
                 fullWidth
-                className="mt-6 uppercase text-sm font-extrabold tracking-wider"
+                aria-label="Register as blood donor"
+                className="mt-6 uppercase text-sm font-extrabold tracking-wider h-14"
               >
                 SUBMIT REGISTRATION
               </Button>

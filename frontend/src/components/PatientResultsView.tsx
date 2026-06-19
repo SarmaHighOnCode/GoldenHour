@@ -29,6 +29,10 @@ export default function PatientResultsView() {
   const [donorsAlerted] = useState(5);
   const [donorsResponded, setDonorsResponded] = useState(0);
 
+  // loading skeleton & error states
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasError, setHasError] = useState<boolean>(false);
+
   // Configurable Mock state (defaults to true for reliable demo offline mode)
   const [isMockMode, setIsMockMode] = useState<boolean>(() => {
     return localStorage.getItem('goldenhour_mock_mode') !== 'false';
@@ -81,17 +85,21 @@ export default function PatientResultsView() {
       };
 
       updateStateFromPayload(mockPayload);
+      setHasError(false);
     } else {
       try {
         const res = await fetch(`${BASE_URL}/emergency/${requestId}/status`);
         if (res.ok) {
           const data = await res.json();
           updateStateFromPayload(data);
+          setHasError(false);
         } else {
           console.warn('Status check returned non-200:', res.statusText);
+          setHasError(true);
         }
       } catch (err) {
         console.error('Network error during status polling:', err);
+        setHasError(true);
       }
     }
   };
@@ -99,6 +107,14 @@ export default function PatientResultsView() {
   // Interval polling subscription
   useEffect(() => {
     if (!id) return;
+
+    setIsLoading(true);
+    setHasError(false);
+
+    // Initial 1.2s delay for a premium skeleton load animation
+    const skeletonTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1200);
 
     pollStatus(id);
 
@@ -108,6 +124,7 @@ export default function PatientResultsView() {
 
     return () => {
       clearInterval(intervalId);
+      clearTimeout(skeletonTimer);
     };
   }, [id, isMockMode]);
 
@@ -155,90 +172,154 @@ export default function PatientResultsView() {
       </div>
 
       {/* Hospital Cards (AnimatePresence for layout transition animations) */}
-      <div className="space-y-4">
-        <AnimatePresence>
-          {sortedHospitals.map((h, index) => {
-            const isConfirmed = h.status === 'confirmed';
-            const isDeclined = h.status === 'declined';
-
-            return (
-              <motion.div
-                key={h.hospital_id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 300,
-                  damping: 30,
-                  delay: index * 0.05
-                }}
-              >
-                <Card
-                  animateEntrance={false} // Framer-motion layout handles entrance
-                  className={`transition-all duration-500 border ${
-                    isConfirmed 
-                      ? 'border-emerald-500/40 bg-emerald-50/10 shadow-[0_4px_20px_rgba(5,150,105,0.08)]' 
-                      : isDeclined 
-                      ? 'opacity-40 grayscale border-slate-200/50 bg-slate-50/50'
-                      : 'border-slate-200/60'
-                  }`}
+      <div className="space-y-4" aria-live="polite">
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              key="skeleton-loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4 w-full"
+            >
+              {[1, 2, 3].map((idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-white rounded-2xl p-5 shadow-layered border border-slate-100/50 space-y-4 animate-pulse"
                 >
-                  {/* Glowing amber branding highlight on confirmed card */}
-                  {isConfirmed && (
-                    <div className="absolute top-0 right-0 w-2 h-2 bg-goldenhour rounded-full m-3 animate-pulse" />
-                  )}
-
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-lg text-ink leading-tight">
-                        {h.name}
-                      </h3>
-                      
-                      {/* Subdued / Matched department chip */}
-                      {h.department_match ? (
-                        <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-500/10">
-                          Dept ✓ matched
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                          Dept mismatch
-                        </span>
-                      )}
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2 w-2/3">
+                      <div className="h-5 bg-slate-100 rounded w-5/6" />
+                      <div className="h-3.5 bg-slate-100/80 rounded w-1/3" />
                     </div>
-
-                    <Badge status={h.status} />
+                    <div className="h-6 bg-slate-100 rounded-full w-16" />
                   </div>
+                  <div className="h-5 bg-slate-100 rounded w-28" />
+                  <div className="h-14 bg-slate-100 rounded-xl w-full" />
+                </div>
+              ))}
+            </motion.div>
+          ) : hasError ? (
+            <motion.div
+              key="error-state"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-red-50/50 border border-red-200/40 rounded-2xl p-6 text-center space-y-3"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 text-emergency flex items-center justify-center text-xl font-black mx-auto">
+                !
+              </div>
+              <h3 className="font-extrabold text-ink text-lg leading-tight">Connection Issue</h3>
+              <p className="text-xs text-ink-muted leading-relaxed px-4">
+                We are having trouble contacting the dispatch server. Please check your connection.
+              </p>
+              <button
+                type="button"
+                onClick={() => pollStatus(id || '')}
+                className="text-xs font-black uppercase tracking-wider text-rose-600 hover:text-rose-700 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/25 rounded px-2 py-1 cursor-pointer"
+              >
+                Retry Connection
+              </button>
+            </motion.div>
+          ) : sortedHospitals.length === 0 ? (
+            <motion.div
+              key="empty-state"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-slate-50 border border-slate-200/50 rounded-2xl p-8 text-center space-y-3"
+            >
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xl font-bold mx-auto">
+                ?
+              </div>
+              <h3 className="font-extrabold text-ink text-lg leading-tight">No Responders Found</h3>
+              <p className="text-xs text-ink-muted leading-relaxed px-4">
+                We couldn't locate any hospital dispatch units in your immediate radius.
+              </p>
+            </motion.div>
+          ) : (
+            sortedHospitals.map((h, index) => {
+              const isConfirmed = h.status === 'confirmed';
+              const isDeclined = h.status === 'declined';
 
-                  {/* Badging: ETA & Distance */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-[#F59E0B] bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-500/10">
-                      <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {h.eta_minutes} min ETA
-                    </span>
-                  </div>
-
-                  {/* 1-tap Call Button */}
-                  <a
-                    href={`tel:${h.phone}`}
-                    className={`flex items-center justify-center gap-2 w-full h-14 rounded-xl font-bold text-sm tracking-wider uppercase transition-all duration-300 border ${
-                      isConfirmed
-                        ? 'bg-success hover:opacity-90 text-white border-transparent shadow-[0_4px_15px_rgba(5,150,105,0.25)]'
-                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              return (
+                <motion.div
+                  key={h.hospital_id}
+                  layout
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 300,
+                    damping: 30,
+                    delay: index * 0.04
+                  }}
+                >
+                  <Card
+                    animateEntrance={false}
+                    className={`transition-all duration-500 border ${
+                      isConfirmed 
+                        ? 'border-emerald-500/40 bg-emerald-50/10 shadow-[0_4px_20px_rgba(5,150,105,0.08)]' 
+                        : isDeclined 
+                        ? 'opacity-40 grayscale border-slate-200/50 bg-slate-50/50'
+                        : 'border-slate-200/60'
                     }`}
                   >
-                    <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    {isConfirmed ? 'Establish Call Link' : 'Call Dispatch'}
-                  </a>
-                </Card>
-              </motion.div>
-            );
-          })}
+                    {/* Glowing amber branding highlight on confirmed card */}
+                    {isConfirmed && (
+                      <div className="absolute top-0 right-0 w-2 h-2 bg-goldenhour rounded-full m-3 animate-pulse" />
+                    )}
+
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-lg text-ink leading-tight">
+                          {h.name}
+                        </h3>
+                        
+                        {h.department_match ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-500/10">
+                            Dept ✓ matched
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                            Dept mismatch
+                          </span>
+                        )}
+                      </div>
+
+                      <Badge status={h.status} />
+                    </div>
+
+                    {/* Badging: ETA */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-[#F59E0B] bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-500/10">
+                        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {h.eta_minutes} min ETA
+                      </span>
+                    </div>
+
+                    {/* 1-tap Call Button */}
+                    <a
+                      href={`tel:${h.phone}`}
+                      aria-label={`Call ${h.name} dispatch`}
+                      className={`flex items-center justify-center gap-2 w-full h-14 rounded-xl font-extrabold text-sm tracking-wider uppercase transition-all duration-300 border focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/20 active:scale-[0.98] ${
+                        isConfirmed
+                          ? 'bg-success hover:bg-emerald-700 text-white border-transparent shadow-[0_4px_15px_rgba(5,150,105,0.25)] focus-visible:ring-emerald-500/30'
+                          : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 active:bg-slate-100'
+                      }`}
+                    >
+                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      {isConfirmed ? 'Establish Call Link' : 'Call Dispatch'}
+                    </a>
+                  </Card>
+                </motion.div>
+              );
+            })
+          )}
         </AnimatePresence>
       </div>
 
