@@ -66,6 +66,28 @@ class InMemoryStore:
         self.confirmations: Dict[str, Dict] = {}  # keyed by token
         self._emergency_seq = itertools.count(1)
         self._donor_seq = itertools.count(len(self.donors) + 1)
+        # OSM lazy-fetch cache: grid cells already fetched (0.3° ≈ 33 km)
+        self._osm_regions: set = set()
+
+    def _region_key(self, lat: float, lng: float) -> tuple:
+        return (round(lat / 0.3), round(lng / 0.3))
+
+    def is_region_fetched(self, lat: float, lng: float) -> bool:
+        return self._region_key(lat, lng) in self._osm_regions
+
+    def mark_region_fetched(self, lat: float, lng: float) -> None:
+        self._osm_regions.add(self._region_key(lat, lng))
+
+    def bulk_add_hospitals(self, hospitals: List[Dict]) -> int:
+        existing = {h["id"] for h in self.hospitals}
+        added = 0
+        for h in hospitals:
+            if h["id"] not in existing:
+                self.hospitals.append(h)
+                existing.add(h["id"])
+                added += 1
+        logger.info("OSM: added %d new hospitals (store total %d)", added, len(self.hospitals))
+        return added
 
     # --- Hospitals ---------------------------------------------------------
     def hospitals_with_distance(self, lat: float, lng: float) -> List[Dict]:

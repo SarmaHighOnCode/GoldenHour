@@ -16,10 +16,134 @@ span [0, 1]. At launch (no confirmations yet) ranking is pure prox + dept.
 """
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
+import random
+import urllib.parse
+import urllib.request
 from typing import Dict, List
 
 from config import settings
 from services.geocoder import eta_minutes
+
+logger = logging.getLogger("goldenhour.hospital_service")
+
+# If the nearest hospital in the store is beyond this, trigger an OSM fetch.
+_NEARBY_THRESHOLD_KM = 75
+_OSM_RADIUS_KM = 30
+_OSM_TIMEOUT = 12  # seconds
+
+_DEPT_KEYWORDS: Dict[str, List[str]] = {
+    "cardiac":   ["cardiac", "cardio", "heart", "cardiology"],
+    "trauma":    ["trauma", "accident", "casualty", "surgical", "surgery",
+                  "ortho", "neuro", "neurosurgery"],
+    "obstetric": ["maternity", "obstet", "gynaec", "gynec", "women",
+                  "child", "paedia", "neonat", "birth", "maternal"],
+}
+_BIG_WORDS = {
+    "medical college", "civil hospital", "district hospital",
+    "government hospital", "aiims", "super specialty",
+    "multispeciality", "multi specialty", "gmch",
+}
+_SKIP_WORDS = {
+    "dental", "eye care", "optical", "pharmacy", "chemist",
+    "ayurved", "homeopath", "veterinar", "beauty", "cosmet",
+}
+
+
+def _assign_departments(name: str) -> List[str]:
+    lower = name.lower()
+    if any(s in lower for s in _SKIP_WORDS):
+        return []
+    depts: set = {"general"}
+    if any(m in lower for m in ("phc", "sub centre", "sub-centre")):
+        return ["general"]
+    if any(m in lower for m in ("chc", "community health")):
+        depts.add("obstetric")
+    for dept, kws in _DEPT_KEYWORDS.items():
+        if any(kw in lower for kw in kws):
+            depts.add(dept)
+    if any(w in lower for w in _BIG_WORDS):
+        depts.add("trauma")
+    return sorted(depts)
+
+
+def _parse_osm_elements(elements: list) -> List[Dict]:
+    rng = random.Random()
+    seen: set = set()
+    hospitals: List[Dict] = []
+    for el in elements:
+        tags = el.get("tags", {})
+        name = tags.get("name") or tags.get("name:en") or tags.get("official_name")
+        if not name or name.lower() in seen:
+            continue
+        depts = _assign_departments(name)
+        if not depts:
+            continue
+        seen.add(name.lower())
+        if el["type"] == "node":
+            h_lat, h_lng = el["lat"], el["lon"]
+        else:
+            center = el.get("center", {})
+            if not center:
+                continue
+            h_lat, h_lng = center["lat"], center["lon"]
+        phone = tags.get("phone") or tags.get("contact:phone") or "+910000000000"
+        h_id = f"osm-{el['id']}"
+        hospitals.append({
+            "id": h_id,
+            "name": name,
+            "lat": round(h_lat, 5),
+            "lng": round(h_lng, 5),
+            "departments": depts,
+            "beds_available": rng.randint(3, 15),
+            "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
+            "phone": phone,
+            "contact_phone": phone,
+        })
+    return hospitals
+
+
+async def _fetch_from_osm(lat: float, lng: float) -> List[Dict]:
+    """Query Overpass API for hospitals near lat/lng. Non-blocking via thread."""
+    r = int(_OSM_RADIUS_KM * 1000)
+    a = f"{lat},{lng}"
+    query = (
+        f"[out:json][timeout:10];\n(\n"
+        f'  node["amenity"="hospital"](around:{r},{a});\n'
+        f'  way["amenity"="hospital"](around:{r},{a});\n'
+        f'  node["amenity"="clinic"](around:{r},{a});\n'
+        f'  way["amenity"="clinic"](around:{r},{a});\n'
+        f'  node["healthcare"="centre"](around:{r},{a});\n'
+        f'  node["name"~"PHC|CHC|Primary Health|Community Health|Civil Hospital|District Hospital",i](around:{r},{a});\n'
+        f'  way["name"~"PHC|CHC|Primary Health|Community Health|Civil Hospital|District Hospital",i](around:{r},{a});\n'
+        f");\nout center tags;\n"
+    )
+    payload = urllib.parse.urlencode({"data": query}).encode()
+    req = urllib.request.Request(
+        "https://overpass-api.de/api/interpreter",
+        data=payload,
+        method="POST",
+    )
+    req.add_header("User-Agent", "GoldenHour-Emergency/1.0")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+    def _do_request():
+        with urllib.request.urlopen(req, timeout=_OSM_TIMEOUT) as resp:
+            return json.loads(resp.read())["elements"]
+
+    try:
+        logger.info("OSM fetch: querying Overpass for lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM)
+        elements = await asyncio.wait_for(
+            asyncio.to_thread(_do_request), timeout=_OSM_TIMEOUT + 2
+        )
+        hospitals = _parse_osm_elements(elements)
+        logger.info("OSM fetch: got %d hospitals", len(hospitals))
+        return hospitals
+    except Exception as exc:
+        logger.warning("OSM fetch failed (%s) — continuing without new hospitals", exc)
+        return []
 
 # emergency_type -> hospital department required to treat it
 _TYPE_TO_DEPARTMENT = {
@@ -67,6 +191,23 @@ async def rank_hospitals(
     # Nearest candidates by straight-line distance.
     candidates = store.hospitals_with_distance(lat, lng)
     candidates.sort(key=lambda h: h["distance_km"])
+
+    # If the nearest hospital is far away and the store supports lazy OSM
+    # fetching (InMemoryStore only — Supabase already has real data), fetch
+    # hospitals near the patient's actual location on demand.
+    nearest_km = candidates[0]["distance_km"] if candidates else float("inf")
+    if (
+        nearest_km > _NEARBY_THRESHOLD_KM
+        and hasattr(store, "is_region_fetched")
+        and not store.is_region_fetched(lat, lng)
+    ):
+        osm = await _fetch_from_osm(lat, lng)
+        if osm:
+            store.bulk_add_hospitals(osm)
+            store.mark_region_fetched(lat, lng)
+            candidates = store.hospitals_with_distance(lat, lng)
+            candidates.sort(key=lambda h: h["distance_km"])
+
     candidates = candidates[:candidate_pool]
 
     scored: List[Dict] = []
