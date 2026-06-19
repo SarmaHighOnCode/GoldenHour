@@ -28,15 +28,15 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-bg-warm text-ink flex flex-col antialiased relative selection:bg-goldenhour/25">
-      {/* Memorable Amber Gradient branding line threaded on very top */}
+      {/* Memorable Medulance Gradient branding line threaded on very top */}
       <div 
-        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-600 via-goldenhour to-rose-500 z-[100]" 
+        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency z-[100]" 
         role="presentation"
       />
       
       {!isHospitalConfirm && <AppBar />}
       
-      <main className="flex-grow flex flex-col items-center justify-center p-4 max-w-md w-full mx-auto relative pt-6 pb-12">
+      <main className="flex-grow flex flex-col items-center justify-center p-4 w-full relative pt-6 pb-12">
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<PageWrapper><PatientIntakeView /></PageWrapper>} />

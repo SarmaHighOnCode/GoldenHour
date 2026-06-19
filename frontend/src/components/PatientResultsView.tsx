@@ -210,10 +210,10 @@ export default function PatientResultsView() {
   });
 
   return (
-    <div className="space-y-6 pb-28 select-none">
+    <div className="w-full max-w-md mx-auto space-y-6 pb-28 select-none">
       
       {/* Top Status Header */}
-      <div className="flex items-center justify-between border-b border-[#E5E2DD] pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div className="flex items-center gap-2">
           {/* Pulsing indicator */}
           <span className="relative flex h-3.5 w-3.5">
