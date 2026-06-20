@@ -25,8 +25,9 @@ export default function PatientResultsView() {
     { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, department_match: false, status: "pending", phone: "+910000000000" },
   ]);
 
-  // Alert metrics
-  const [donorsAlerted] = useState(5);
+  // Alert metrics — both come from the API (donors_alerted from the trigger,
+  // updated on every status poll).
+  const [donorsAlerted, setDonorsAlerted] = useState(0);
   const [donorsResponded, setDonorsResponded] = useState(0);
 
   // loading skeleton & error states
@@ -47,6 +48,7 @@ export default function PatientResultsView() {
 
   // Process data returned from status payload
   const updateStateFromPayload = (data: any) => {
+    if (typeof data.donors_alerted === 'number') setDonorsAlerted(data.donors_alerted);
     setDonorsResponded(data.donors_responded ?? 0);
     if (Array.isArray(data.hospitals)) {
       setHospitals(prev => {
@@ -403,7 +405,7 @@ export default function PatientResultsView() {
               <svg className="w-4.5 h-4.5 text-emergency animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
               </svg>
-              {donorsAlerted} donors alerted nearby
+              {isLoading ? 'Locating donors nearby…' : `${donorsAlerted} donors alerted nearby`}
             </span>
             <span className="text-[11px] text-slate-500 font-semibold pl-6">
               {donorsResponded > 0 ? `${donorsResponded} responded` : 'Waiting for responses'}
