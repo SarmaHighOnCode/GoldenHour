@@ -366,7 +366,7 @@ export default function PatientIntakeView() {
               <span className="text-[10px] font-black text-emergency uppercase tracking-widest">Live Dispatch</span>
             </div>
             <h2 className="text-display-lg text-dark-ink">
-              Lock. Dispatch. <span className="text-gradient">Save.</span>
+              Lock. Dispatch. <span className="text-white/90">Save.</span>
             </h2>
             <p className="text-base text-dark-ink-muted leading-relaxed max-w-md">
               Pin your GPS coordinates, select the emergency type and blood group needed, then hit dispatch. We route the request to the closest matching hospital and alert nearby donors instantly.
@@ -500,7 +500,7 @@ export default function PatientIntakeView() {
         <div className="absolute top-0 left-0 w-full py-6 px-6 z-10">
           <div className="max-w-6xl mx-auto">
             <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-2">How It Works</p>
-            <h2 className="text-display-lg text-dark-ink">Three steps. <span className="text-gradient">Zero delay.</span></h2>
+            <h2 className="text-display-lg text-dark-ink">Three steps. <span className="text-white/90">Zero delay.</span></h2>
           </div>
         </div>
 
@@ -559,12 +559,12 @@ export default function PatientIntakeView() {
         <div className="max-w-5xl mx-auto w-full">
           <div className="text-center space-y-3 mb-10">
             <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em]">By The Numbers</p>
-            <h2 className="text-display-lg text-dark-ink">Built for speed. <span className="text-gradient">Designed for trust.</span></h2>
+            <h2 className="text-display-lg text-dark-ink">Built for speed. <span className="text-white/90">Designed for trust.</span></h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             <CardReveal className="glass-card p-8 text-center space-y-3" delay={0}>
-              <div className="text-5xl font-display font-bold text-gradient">
+              <div className="text-5xl font-display font-bold text-goldenhour">
                 <CountUp end={6} prefix="< " suffix=" min" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Average Response</p>
@@ -572,7 +572,7 @@ export default function PatientIntakeView() {
             </CardReveal>
 
             <CardReveal className="glass-card p-8 text-center space-y-3" delay={0.1}>
-              <div className="text-5xl font-display font-bold text-gradient">
+              <div className="text-5xl font-display font-bold text-goldenhour">
                 24/7
               </div>
               <p className="text-sm font-semibold text-dark-ink">Always On</p>
@@ -580,7 +580,7 @@ export default function PatientIntakeView() {
             </CardReveal>
 
             <CardReveal className="glass-card p-8 text-center space-y-3" delay={0.2}>
-              <div className="text-5xl font-display font-bold text-gradient">
+              <div className="text-5xl font-display font-bold text-goldenhour">
                 <CountUp end={100} suffix="%" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Open Source</p>
@@ -597,7 +597,7 @@ export default function PatientIntakeView() {
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <TextReveal
             as="h2"
-            className="text-display-lg text-dark-ink"
+            className="text-display-lg text-gradient"
             stagger={0.04}
             start="top 80%"
             end="top 50%"
