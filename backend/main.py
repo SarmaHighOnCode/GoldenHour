@@ -9,7 +9,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 
 from config import settings
 from middleware import add_cors_middleware
@@ -29,10 +29,39 @@ from schemas import (
 from store import get_store
 
 from services import confirm_service, donor_service, emergency_service, sms_service
+from services.rate_limiter import RateLimiter
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)  # suppress URLs (contain API key)
 logger = logging.getLogger("goldenhour")
+
+# Fixed-window per-client limits on the public write endpoints — generous enough
+# for a panicked double-tap, tight enough to blunt a flood. In-process (single
+# node); a multi-node deploy would back these with Redis.
+_emergency_limiter = RateLimiter(max_requests=10, window_seconds=60.0)
+_donor_limiter = RateLimiter(max_requests=10, window_seconds=60.0)
+_confirm_limiter = RateLimiter(max_requests=30, window_seconds=60.0)
+_RATE_LIMITERS = (_emergency_limiter, _donor_limiter, _confirm_limiter)
+
+
+def _client_key(request: Request) -> str:
+    """Best-effort client identity, honoring the proxy's X-Forwarded-For."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limit(limiter: RateLimiter):
+    """Build a dependency that 429s when the caller exceeds ``limiter``."""
+
+    async def _dependency(request: Request) -> None:
+        if not limiter.allow(_client_key(request)):
+            raise HTTPException(
+                status_code=429, detail="Too many requests — please slow down."
+            )
+
+    return _dependency
 
 
 async def _prewarm_osm() -> None:
@@ -163,6 +192,7 @@ async def readiness_check():
     response_model=EmergencyResponse,
     tags=["emergency"],
     summary="Trigger an emergency",
+    dependencies=[Depends(_rate_limit(_emergency_limiter))],
 )
 async def trigger_emergency(request: EmergencyRequest):
     """Trigger an emergency: rank hospitals, alert donors, send confirmations."""
@@ -209,6 +239,7 @@ async def get_confirmation(token: str):
     response_model=HospitalConfirmResponse,
     tags=["confirmation"],
     summary="Hospital accept / decline",
+    dependencies=[Depends(_rate_limit(_confirm_limiter))],
 )
 async def confirm_hospital(token: str, request: HospitalConfirmRequest):
     """A hospital contact taps Accept (true) or Not Available (false)."""
@@ -223,6 +254,7 @@ async def confirm_hospital(token: str, request: HospitalConfirmRequest):
     response_model=DonorRegisterResponse,
     tags=["donors"],
     summary="Register a blood donor",
+    dependencies=[Depends(_rate_limit(_donor_limiter))],
 )
 async def register_donor(request: DonorRegisterRequest):
     """Register a replacement-blood donor."""

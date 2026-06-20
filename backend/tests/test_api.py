@@ -205,6 +205,30 @@ def test_register_donor(client):
     assert body["donor_id"].startswith("d")
 
 
+# --- Security: token strength + rate limiting ------------------------------
+def test_confirmation_tokens_are_strong_and_unique(client):
+    request_id = _trigger(client).json()["request_id"]
+    store = store_module.get_store()
+    tokens = [c["token"] for c in store.confirmations_for_emergency(request_id)]
+    assert tokens, "expected at least one confirmation token"
+    # secrets.token_urlsafe(16) -> ~22 chars; far longer than a 12-char uuid slice.
+    assert all(len(t) >= 20 for t in tokens)
+    assert len(set(tokens)) == len(tokens)
+
+
+def test_emergency_rate_limited_after_burst(client):
+    import main as main_module
+
+    limiter = main_module._emergency_limiter
+    # Saturate the window for the test client's key directly — this keeps the
+    # test instant and deterministic (no dependence on wall-clock or on the
+    # speed of the real hospital-ranking work behind the endpoint).
+    for _ in range(limiter.max_requests):
+        limiter.allow("testclient")
+    # The next real call is rejected by the dependency before any work runs.
+    assert _trigger(client).status_code == 429
+
+
 # --- POST /sms/inbound -----------------------------------------------------
 def test_sms_inbound_parses_and_replies(client):
     resp = client.post(

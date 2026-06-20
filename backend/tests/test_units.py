@@ -7,7 +7,25 @@ from blood import compatible_donor_groups
 from geo import haversine_km
 from services.donor_service import match_donors
 from services.hospital_service import rank_hospitals
+from services.rate_limiter import RateLimiter
 from store import get_store
+
+
+# --- Rate limiter ----------------------------------------------------------
+def test_rate_limiter_allows_up_to_max_then_blocks():
+    limiter = RateLimiter(max_requests=3, window_seconds=60.0)
+    assert [limiter.allow("ip") for _ in range(3)] == [True, True, True]
+    assert limiter.allow("ip") is False  # 4th in the window is rejected
+    # A different caller has its own budget.
+    assert limiter.allow("other-ip") is True
+
+
+def test_rate_limiter_reset_clears_budget():
+    limiter = RateLimiter(max_requests=1, window_seconds=60.0)
+    assert limiter.allow("ip") is True
+    assert limiter.allow("ip") is False
+    limiter.reset("ip")
+    assert limiter.allow("ip") is True
 
 
 # --- Blood compatibility ---------------------------------------------------

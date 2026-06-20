@@ -13,7 +13,7 @@ replied, and how many donors have responded.
 
 from __future__ import annotations
 
-import uuid
+import secrets
 from datetime import datetime, timezone
 from typing import Dict
 
@@ -57,7 +57,9 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
     # One confirmation request + link per hospital.
     for c in ranked:
         record = c["_record"]
-        token = uuid.uuid4().hex[:12]
+        # 128-bit URL-safe token — this link gates accepting/declining a patient,
+        # so it must be unguessable, not a truncated uuid.
+        token = secrets.token_urlsafe(16)
         store.create_confirmation(
             emergency_id=emergency["id"],
             hospital_id=c["hospital_id"],

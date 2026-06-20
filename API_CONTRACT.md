@@ -11,6 +11,7 @@ This is the single most important document for the team. Both the backend (You) 
 - Blood groups are always strings: `"O+"`, `"O-"`, `"A+"`, `"A-"`, `"B+"`, `"B-"`, `"AB+"`, `"AB-"`.
 - `status` for a hospital is always one of: `"pending"`, `"confirmed"`, `"declined"`.
 - Coordinates: `lat` and `lng` are decimal numbers (e.g. `26.9124`, `75.7873` for Jaipur). `lat` must be −90..90 and `lng` −180..180 — out-of-range coordinates (e.g. a failed browser geolocation) are rejected with **422**.
+- The write endpoints (`POST /emergency`, `POST /confirm/{token}`, `POST /donor/register`) are rate-limited per client. Exceeding the limit returns **429** with `{"detail": "Too many requests — please slow down."}`; back off and retry. Normal use never hits it.
 
 ## Endpoint 1 — Trigger an emergency
 `POST /emergency`
