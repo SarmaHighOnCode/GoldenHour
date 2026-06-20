@@ -10,6 +10,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { api } from '../lib/api';
+import { MapPin, Building2, Droplet, Zap, Phone } from 'lucide-react';
 
 const BACKGROUND_SLIDES = [
   '/hero_app_mockup.png',
@@ -289,16 +290,15 @@ export default function PatientIntakeView() {
               href="#intake"
               className="inline-flex items-center justify-center gap-3 h-14 px-10 bg-gradient-to-r from-emergency to-emergency-pressed text-white rounded-2xl font-bold text-sm tracking-wider uppercase transition-all duration-300 hover:scale-105 active:scale-[0.98] shadow-lg shadow-emergency/20 animate-pulse-glow"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+              <Zap className="w-5 h-5 text-white" />
               Get Help Now
             </a>
             <Link
               to="/register"
               className="inline-flex items-center justify-center gap-2 h-14 px-10 border border-white/15 text-dark-ink hover:bg-white/5 rounded-2xl font-bold text-sm tracking-wider uppercase transition-all duration-300"
             >
-              🩸 Register as Donor
+              <Droplet className="w-5 h-5 text-emergency" />
+              Register as Donor
             </Link>
           </motion.div>
         </div>
@@ -469,9 +469,7 @@ export default function PatientIntakeView() {
                 className="mt-2 shadow-lg shadow-emergency/20 font-extrabold uppercase tracking-wider text-sm h-14"
               >
                 <span className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                  <Zap className="w-5 h-5 text-white" />
                   GET HELP NOW
                 </span>
               </Button>
@@ -496,7 +494,9 @@ export default function PatientIntakeView() {
           {/* Step 1 */}
           <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
             <div>
-              <div className="text-5xl mb-4">📍</div>
+              <div className="mb-6">
+                <MapPin className="w-6 h-6 text-goldenhour" />
+              </div>
               <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-1">Step 01</p>
               <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Lock Location</h3>
               <p className="text-sm text-dark-ink-muted leading-relaxed">
@@ -509,7 +509,9 @@ export default function PatientIntakeView() {
           {/* Step 2 */}
           <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
             <div>
-              <div className="text-5xl mb-4">🏥</div>
+              <div className="mb-6">
+                <Building2 className="w-6 h-6 text-emergency" />
+              </div>
               <p className="text-[10px] font-black text-emergency uppercase tracking-[0.3em] mb-1">Step 02</p>
               <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Smart Dispatch</h3>
               <p className="text-sm text-dark-ink-muted leading-relaxed">
@@ -522,7 +524,9 @@ export default function PatientIntakeView() {
           {/* Step 3 */}
           <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
             <div>
-              <div className="text-5xl mb-4">🩸</div>
+              <div className="mb-6">
+                <Droplet className="w-6 h-6 text-success" />
+              </div>
               <p className="text-[10px] font-black text-success uppercase tracking-[0.3em] mb-1">Step 03</p>
               <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Donor Alert</h3>
               <p className="text-sm text-dark-ink-muted leading-relaxed">
@@ -592,16 +596,15 @@ export default function PatientIntakeView() {
               href="tel:112"
               className="inline-flex items-center justify-center gap-3 h-16 px-12 bg-gradient-to-r from-emergency to-emergency-pressed text-white rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 hover:scale-105 active:scale-[0.98] shadow-lg shadow-emergency/25"
             >
-              <svg className="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
+              <Phone className="w-6 h-6 text-white animate-pulse" />
               Call 112
             </a>
             <Link
               to="/register"
               className="inline-flex items-center justify-center gap-3 h-16 px-12 border-2 border-goldenhour text-goldenhour hover:bg-goldenhour/10 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300"
             >
-              🩸 Become a Donor
+              <Droplet className="w-6 h-6 text-goldenhour" />
+              Become a Donor
             </Link>
           </div>
 
