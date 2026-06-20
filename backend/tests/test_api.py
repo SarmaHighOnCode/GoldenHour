@@ -1,4 +1,5 @@
 """Endpoint tests — verify the API_CONTRACT.md shapes and the live flow."""
+
 from tests.conftest import JAIPUR
 
 import store as store_module
@@ -38,8 +39,13 @@ def test_emergency_returns_contract_shape(client):
 
     card = body["hospitals"][0]
     assert set(card) == {
-        "hospital_id", "name", "eta_minutes", "department_match",
-        "distance_km", "status", "phone",
+        "hospital_id",
+        "name",
+        "eta_minutes",
+        "department_match",
+        "distance_km",
+        "status",
+        "phone",
     }
     assert card["status"] == "pending"
 
@@ -85,7 +91,10 @@ def test_status_shape(client):
     request_id = _trigger(client).json()["request_id"]
     body = client.get(f"/emergency/{request_id}/status").json()
     assert set(body) == {
-        "request_id", "hospitals", "donors_alerted", "donors_responded",
+        "request_id",
+        "hospitals",
+        "donors_alerted",
+        "donors_responded",
         "unconfirmed_fallback",
     }
     assert body["request_id"] == request_id

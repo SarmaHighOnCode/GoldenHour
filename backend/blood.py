@@ -5,6 +5,7 @@ donate? This is the hardcoded "ABO table" referenced in the backend PRD. It is
 intentionally a plain dictionary — there is no clinical edge case here worth a
 database lookup, and keeping it in code makes the donor query trivially fast.
 """
+
 from __future__ import annotations
 
 from typing import List

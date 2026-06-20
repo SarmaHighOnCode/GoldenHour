@@ -5,6 +5,7 @@ race: the first hospital to accept "takes" the patient. Any later acceptance is
 told the patient has already been routed (``already_confirmed = true``) and does
 not override the winner.
 """
+
 from __future__ import annotations
 
 from typing import Dict

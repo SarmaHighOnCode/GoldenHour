@@ -13,6 +13,7 @@ Two interchangeable stores implement the same method surface:
 ``confirmation_requests``) and every query method are identical across both,
 the service layer is completely unaware of which store is live.
 """
+
 from __future__ import annotations
 
 import itertools
@@ -68,6 +69,8 @@ class InMemoryStore:
         self._donor_seq = itertools.count(len(self.donors) + 1)
         # OSM lazy-fetch cache: grid cells already fetched (0.3° ≈ 33 km)
         self._osm_regions: set = set()
+        # Demo-donor cache: grid cells already given a synthesized donor pool.
+        self._donor_regions: set = set()
 
     def _region_key(self, lat: float, lng: float) -> tuple:
         return (round(lat / 0.3), round(lng / 0.3))
@@ -86,7 +89,30 @@ class InMemoryStore:
                 self.hospitals.append(h)
                 existing.add(h["id"])
                 added += 1
-        logger.info("OSM: added %d new hospitals (store total %d)", added, len(self.hospitals))
+        logger.info(
+            "OSM: added %d new hospitals (store total %d)", added, len(self.hospitals)
+        )
+        return added
+
+    def is_donor_region_seeded(self, lat: float, lng: float) -> bool:
+        return self._region_key(lat, lng) in self._donor_regions
+
+    def mark_donor_region_seeded(self, lat: float, lng: float) -> None:
+        self._donor_regions.add(self._region_key(lat, lng))
+
+    def bulk_add_donors(self, donors: List[Dict]) -> int:
+        existing = {d["id"] for d in self.donors}
+        added = 0
+        for d in donors:
+            if d["id"] not in existing:
+                self.donors.append(d)
+                existing.add(d["id"])
+                added += 1
+        logger.info(
+            "Donors: added %d demo donors near venue (store total %d)",
+            added,
+            len(self.donors),
+        )
         return added
 
     # --- Hospitals ---------------------------------------------------------
@@ -94,7 +120,9 @@ class InMemoryStore:
         out = []
         for h in self.hospitals:
             enriched = dict(h)
-            enriched["distance_km"] = round(haversine_km(lat, lng, h["lat"], h["lng"]), 2)
+            enriched["distance_km"] = round(
+                haversine_km(lat, lng, h["lat"], h["lng"]), 2
+            )
             out.append(enriched)
         return out
 
@@ -132,7 +160,9 @@ class InMemoryStore:
         result.sort(key=lambda d: d["distance_m"])
         return result
 
-    def add_donor(self, name, phone, blood_group, lat, lng, last_donated, sex=None) -> str:
+    def add_donor(
+        self, name, phone, blood_group, lat, lng, last_donated, sex=None
+    ) -> str:
         donor_id = f"d{next(self._donor_seq)}"
         self.donors.append(
             {
@@ -173,7 +203,9 @@ class InMemoryStore:
         return self.emergencies.get(request_id)
 
     # --- Confirmation requests --------------------------------------------
-    def create_confirmation(self, emergency_id, hospital_id, hospital_name, token) -> Dict:
+    def create_confirmation(
+        self, emergency_id, hospital_id, hospital_name, token
+    ) -> Dict:
         record = {
             "token": token,
             "emergency_id": emergency_id,
@@ -190,11 +222,14 @@ class InMemoryStore:
         return self.confirmations.get(token)
 
     def confirmations_for_emergency(self, emergency_id: str) -> List[Dict]:
-        return [c for c in self.confirmations.values() if c["emergency_id"] == emergency_id]
+        return [
+            c for c in self.confirmations.values() if c["emergency_id"] == emergency_id
+        ]
 
     def emergency_is_taken(self, emergency_id: str) -> bool:
         return any(
-            c["confirmed"] is True for c in self.confirmations_for_emergency(emergency_id)
+            c["confirmed"] is True
+            for c in self.confirmations_for_emergency(emergency_id)
         )
 
     def hospital_reliability(self, hospital_id: str) -> tuple[int, float]:
@@ -256,7 +291,9 @@ class SupabaseStore:
         out = []
         for h in self.hospitals:
             enriched = dict(h)
-            enriched["distance_km"] = round(haversine_km(lat, lng, h["lat"], h["lng"]), 2)
+            enriched["distance_km"] = round(
+                haversine_km(lat, lng, h["lat"], h["lng"]), 2
+            )
             out.append(enriched)
         return out
 
@@ -280,7 +317,9 @@ class SupabaseStore:
                 "p_radius_m": radius_meters,
                 "p_cooldown_days": cooldown_days,
                 "p_cooldown_days_female": (
-                    cooldown_days_female if cooldown_days_female is not None else cooldown_days
+                    cooldown_days_female
+                    if cooldown_days_female is not None
+                    else cooldown_days
                 ),
             },
         ).execute()
@@ -289,7 +328,9 @@ class SupabaseStore:
             d["distance_m"] = round(haversine_meters(lat, lng, d["lat"], d["lng"]), 1)
         return donors
 
-    def add_donor(self, name, phone, blood_group, lat, lng, last_donated, sex=None) -> str:
+    def add_donor(
+        self, name, phone, blood_group, lat, lng, last_donated, sex=None
+    ) -> str:
         donor_id = f"d{uuid.uuid4().hex[:8]}"
         self.client.table("blood_donors").insert(
             {
@@ -363,7 +404,9 @@ class SupabaseStore:
         }
 
     # --- Confirmation requests --------------------------------------------
-    def create_confirmation(self, emergency_id, hospital_id, hospital_name, token) -> Dict:
+    def create_confirmation(
+        self, emergency_id, hospital_id, hospital_name, token
+    ) -> Dict:
         record = {
             "token": token,
             "emergency_id": emergency_id,

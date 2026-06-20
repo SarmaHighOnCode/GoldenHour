@@ -5,6 +5,7 @@ Implements just the query-builder surface that ``SupabaseStore`` uses
 ``rpc``) backed by plain lists. Lets us exercise the production store's logic —
 column names, query chains, key mapping — without a live database.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -21,10 +22,10 @@ class _Result:
 
 class _Query:
     def __init__(self, rows: List[Dict], op: str, payload=None):
-        self._rows = rows           # the live backing list for this table
+        self._rows = rows  # the live backing list for this table
         self._op = op
         self._payload = payload
-        self._filters = []          # list of (col, value)
+        self._filters = []  # list of (col, value)
         self._limit = None
 
     # builder methods (all return self) --------------------------------------
@@ -52,7 +53,9 @@ class _Query:
             return _Result(matched)
 
         if self._op == "insert":
-            items = self._payload if isinstance(self._payload, list) else [self._payload]
+            items = (
+                self._payload if isinstance(self._payload, list) else [self._payload]
+            )
             for item in items:
                 self._rows.append(dict(item))
             return _Result([dict(i) for i in items])
@@ -106,7 +109,10 @@ class FakeSupabaseClient:
                 cooldown = cd_female if d.get("sex") == "female" else cd_male
                 if (today - date.fromisoformat(last)).days < cooldown:
                     continue
-            if haversine_meters(p["p_lat"], p["p_lng"], d["lat"], d["lng"]) > p["p_radius_m"]:
+            if (
+                haversine_meters(p["p_lat"], p["p_lng"], d["lat"], d["lng"])
+                > p["p_radius_m"]
+            ):
                 continue
             out.append(dict(d))
         return out

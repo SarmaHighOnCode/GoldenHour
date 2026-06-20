@@ -10,6 +10,7 @@
 ``GET /emergency/{id}/status`` reports the live state: which hospitals have
 replied, and how many donors have responded.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -85,8 +86,7 @@ def get_status(store, request_id: str) -> Dict:
 
     # Derive each hospital's current status from its confirmation record.
     confirmations = {
-        c["hospital_id"]: c
-        for c in store.confirmations_for_emergency(request_id)
+        c["hospital_id"]: c for c in store.confirmations_for_emergency(request_id)
     }
     hospital_cards = []
     any_confirmed = False

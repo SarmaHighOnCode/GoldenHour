@@ -14,6 +14,7 @@ Cold start: rel(h) only enters the score once a hospital has logged at least
 before then, so the score degrades to proximity + department, renormalised to
 span [0, 1]. At launch (no confirmations yet) ranking is pure prox + dept.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -41,20 +42,52 @@ _OSM_ENDPOINTS = [
 ]
 
 _DEPT_KEYWORDS: Dict[str, List[str]] = {
-    "cardiac":   ["cardiac", "cardio", "heart", "cardiology"],
-    "trauma":    ["trauma", "accident", "casualty", "surgical", "surgery",
-                  "ortho", "neuro", "neurosurgery"],
-    "obstetric": ["maternity", "obstet", "gynaec", "gynec", "women",
-                  "child", "paedia", "neonat", "birth", "maternal"],
+    "cardiac": ["cardiac", "cardio", "heart", "cardiology"],
+    "trauma": [
+        "trauma",
+        "accident",
+        "casualty",
+        "surgical",
+        "surgery",
+        "ortho",
+        "neuro",
+        "neurosurgery",
+    ],
+    "obstetric": [
+        "maternity",
+        "obstet",
+        "gynaec",
+        "gynec",
+        "women",
+        "child",
+        "paedia",
+        "neonat",
+        "birth",
+        "maternal",
+    ],
 }
 _BIG_WORDS = {
-    "medical college", "civil hospital", "district hospital",
-    "government hospital", "aiims", "super specialty",
-    "multispeciality", "multi specialty", "gmch",
+    "medical college",
+    "civil hospital",
+    "district hospital",
+    "government hospital",
+    "aiims",
+    "super specialty",
+    "multispeciality",
+    "multi specialty",
+    "gmch",
 }
 _SKIP_WORDS = {
-    "dental", "eye care", "optical", "pharmacy", "chemist",
-    "ayurved", "homeopath", "veterinar", "beauty", "cosmet",
+    "dental",
+    "eye care",
+    "optical",
+    "pharmacy",
+    "chemist",
+    "ayurved",
+    "homeopath",
+    "veterinar",
+    "beauty",
+    "cosmet",
 }
 
 
@@ -97,17 +130,19 @@ def _parse_osm_elements(elements: list) -> List[Dict]:
             h_lat, h_lng = center["lat"], center["lon"]
         phone = tags.get("phone") or tags.get("contact:phone") or "+910000000000"
         h_id = f"osm-{el['id']}"
-        hospitals.append({
-            "id": h_id,
-            "name": name,
-            "lat": round(h_lat, 5),
-            "lng": round(h_lng, 5),
-            "departments": depts,
-            "beds_available": rng.randint(3, 15),
-            "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
-            "phone": phone,
-            "contact_phone": phone,
-        })
+        hospitals.append(
+            {
+                "id": h_id,
+                "name": name,
+                "lat": round(h_lat, 5),
+                "lng": round(h_lng, 5),
+                "departments": depts,
+                "beds_available": rng.randint(3, 15),
+                "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
+                "phone": phone,
+                "contact_phone": phone,
+            }
+        )
     return hospitals
 
 
@@ -129,17 +164,19 @@ def _parse_places_results(results: list) -> List[Dict]:
         if h_lat is None or h_lng is None:
             continue
         place_id = place.get("place_id", "")
-        hospitals.append({
-            "id": f"gp-{place_id}",
-            "name": name,
-            "lat": round(h_lat, 5),
-            "lng": round(h_lng, 5),
-            "departments": depts,
-            "beds_available": rng.randint(3, 15),
-            "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
-            "phone": "+910000000000",
-            "contact_phone": "+910000000000",
-        })
+        hospitals.append(
+            {
+                "id": f"gp-{place_id}",
+                "name": name,
+                "lat": round(h_lat, 5),
+                "lng": round(h_lng, 5),
+                "departments": depts,
+                "beds_available": rng.randint(3, 15),
+                "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
+                "phone": "+910000000000",
+                "contact_phone": "+910000000000",
+            }
+        )
     return hospitals
 
 
@@ -148,12 +185,14 @@ async def _fetch_from_google_places(lat: float, lng: float) -> List[Dict]:
     if not settings.google_maps_api_key:
         return []
     radius_m = int(_OSM_RADIUS_KM * 1000)
-    params = urllib.parse.urlencode({
-        "location": f"{lat},{lng}",
-        "radius": radius_m,
-        "type": "hospital",
-        "key": settings.google_maps_api_key,
-    })
+    params = urllib.parse.urlencode(
+        {
+            "location": f"{lat},{lng}",
+            "radius": radius_m,
+            "type": "hospital",
+            "key": settings.google_maps_api_key,
+        }
+    )
     url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?{params}"
 
     def _do():
@@ -163,7 +202,9 @@ async def _fetch_from_google_places(lat: float, lng: float) -> List[Dict]:
             return json.loads(resp.read())
 
     try:
-        logger.info("Google Places fetch: lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM)
+        logger.info(
+            "Google Places fetch: lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM
+        )
         data = await asyncio.wait_for(asyncio.to_thread(_do), timeout=12)
         if data.get("status") not in ("OK", "ZERO_RESULTS"):
             logger.warning("Google Places error: %s", data.get("status"))
@@ -224,6 +265,7 @@ async def _fetch_from_osm(lat: float, lng: float) -> List[Dict]:
 
     logger.warning("All OSM endpoints failed — no new hospitals added")
     return []
+
 
 # emergency_type -> hospital department required to treat it
 _TYPE_TO_DEPARTMENT = {

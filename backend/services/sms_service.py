@@ -12,6 +12,7 @@ Two responsibilities:
    ``BLOOD O+ Malviya Nagar Jaipur``. We parse the group + locality, find the
    nearest hospitals, and reply with a plain-text list.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,13 +34,17 @@ recent_alerts: List[Dict] = []
 
 # Match blood groups in free text, longest first so "AB+" wins over "B+".
 _GROUP_RE = re.compile(
-    r"\b(" + "|".join(sorted((re.escape(g) for g in ALL_GROUPS), key=len, reverse=True)) + r")\b",
+    r"\b("
+    + "|".join(sorted((re.escape(g) for g in ALL_GROUPS), key=len, reverse=True))
+    + r")\b",
     re.IGNORECASE,
 )
 
 
 # --- Outbound --------------------------------------------------------------
-def deliver_confirmation_link(hospital_name: str, contact_phone: str, token: str) -> str:
+def deliver_confirmation_link(
+    hospital_name: str, contact_phone: str, token: str
+) -> str:
     """Build and "send" a hospital confirmation link; return the URL."""
     link = f"{settings.frontend_url.rstrip('/')}/confirm/{token}"
     recent_links.insert(
@@ -54,12 +59,14 @@ def deliver_confirmation_link(hospital_name: str, contact_phone: str, token: str
     elif channel == "telegram":
         _send_telegram(f"{hospital_name}: {link}")
     else:
-        logger.info("Link for %s queued for %s delivery: %s", hospital_name, channel, link)
+        logger.info(
+            "Link for %s queued for %s delivery: %s", hospital_name, channel, link
+        )
     return link
 
 
 def alert_donors(donors: List[Dict], blood_group_needed: str) -> int:
-    """"Alert" the nearest K matched donors that blood is needed; return the count.
+    """ "Alert" the nearest K matched donors that blood is needed; return the count.
 
     Demo uses the same low-friction channels as the hospital links
     (console/Telegram/log); production swaps in MSG91/Gupshup + DLT. The message
@@ -127,7 +134,10 @@ def parse_blood_group(body: str) -> Optional[str]:
 def handle_inbound(store, from_number: str, body: str) -> str:
     """Parse an inbound SMS and return the reply text."""
     group = parse_blood_group(body)
-    coords = geocode_area(body) or (store.hospitals[0]["lat"], store.hospitals[0]["lng"])
+    coords = geocode_area(body) or (
+        store.hospitals[0]["lat"],
+        store.hospitals[0]["lng"],
+    )
     lat, lng = coords
 
     hospitals = store.hospitals_with_distance(lat, lng)

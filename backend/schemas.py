@@ -4,6 +4,7 @@ These mirror ``API_CONTRACT.md`` **exactly** — the field names and shapes here
 are the contract the frontend builds against. Do not rename a field without
 updating ``API_CONTRACT.md`` and telling the frontend owner first.
 """
+
 from __future__ import annotations
 
 from typing import Annotated, List, Literal, Optional

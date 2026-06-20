@@ -8,6 +8,7 @@ Nothing here is required: with an empty environment the app boots in
 haversine ETA estimator, and console link delivery. Set the Supabase / Google
 Maps / MSG91 variables to switch each subsystem over to the real service.
 """
+
 from __future__ import annotations
 
 import os
@@ -53,14 +54,18 @@ class Settings:
     # Post-donation cooldown, differentiated by sex per national blood-donation
     # guidelines: 90 days (men) / 120 days (women).
     donor_cooldown_days: int = int(os.getenv("DONOR_COOLDOWN_DAYS", "90"))
-    donor_cooldown_days_female: int = int(os.getenv("DONOR_COOLDOWN_DAYS_FEMALE", "120"))
+    donor_cooldown_days_female: int = int(
+        os.getenv("DONOR_COOLDOWN_DAYS_FEMALE", "120")
+    )
     # Nearest matched donors actually alerted per emergency (top-K).
     donor_alert_k: int = int(os.getenv("DONOR_ALERT_K", "10"))
     # rel(h) enters the hospital score only after a hospital has logged this many
     # confirmations; until then ranking degrades to proximity + department.
     rel_activation_threshold: int = int(os.getenv("REL_ACTIVATION_THRESHOLD", "20"))
     # Seconds with no confirmation before status flags the 1-tap-call fallback.
-    unconfirmed_fallback_seconds: int = int(os.getenv("UNCONFIRMED_FALLBACK_SECONDS", "180"))
+    unconfirmed_fallback_seconds: int = int(
+        os.getenv("UNCONFIRMED_FALLBACK_SECONDS", "180")
+    )
     city_avg_speed_kmph: float = float(os.getenv("CITY_AVG_SPEED_KMPH", "22"))
 
     # --- OSM startup pre-warm ----------------------------------------------

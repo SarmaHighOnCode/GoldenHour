@@ -9,6 +9,7 @@ demo behave identically.
 
 (Demo mode does NOT need this — the in-memory store seeds itself on boot.)
 """
+
 from __future__ import annotations
 
 import sys

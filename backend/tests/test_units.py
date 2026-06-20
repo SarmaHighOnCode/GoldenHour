@@ -1,4 +1,5 @@
 """Unit tests for the algorithms: blood compatibility, geo, ranking, matching."""
+
 import asyncio
 from datetime import date, timedelta
 
@@ -16,7 +17,14 @@ def test_o_negative_is_universal_donor_only_for_o_negative_recipient():
 
 def test_ab_positive_is_universal_recipient():
     assert set(compatible_donor_groups("AB+")) == {
-        "O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"
+        "O-",
+        "O+",
+        "A-",
+        "A+",
+        "B-",
+        "B+",
+        "AB-",
+        "AB+",
     }
 
 
@@ -95,11 +103,27 @@ def test_female_donor_has_longer_cooldown():
     store = get_store()
     today = date(2026, 6, 18)
     hundred_days_ago = (today - timedelta(days=100)).isoformat()
-    store.add_donor("Male Donor", "+919800000001", "O-", 26.9124, 75.7873,
-                    hundred_days_ago, sex="male")
-    store.add_donor("Female Donor", "+919800000002", "O-", 26.9124, 75.7873,
-                    hundred_days_ago, sex="female")
+    store.add_donor(
+        "Male Donor",
+        "+919800000001",
+        "O-",
+        26.9124,
+        75.7873,
+        hundred_days_ago,
+        sex="male",
+    )
+    store.add_donor(
+        "Female Donor",
+        "+919800000002",
+        "O-",
+        26.9124,
+        75.7873,
+        hundred_days_ago,
+        sex="female",
+    )
 
-    phones = {d["phone"] for d in match_donors(store, 26.9124, 75.7873, "O-", today=today)}
-    assert "+919800000001" in phones      # man: 100 days >= 90-day cooldown
+    phones = {
+        d["phone"] for d in match_donors(store, 26.9124, 75.7873, "O-", today=today)
+    }
+    assert "+919800000001" in phones  # man: 100 days >= 90-day cooldown
     assert "+919800000002" not in phones  # woman: 100 days < 120-day cooldown

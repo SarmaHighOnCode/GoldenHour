@@ -4,6 +4,7 @@ Exercises the same emergency -> confirm -> status flow as the in-memory tests,
 but through ``SupabaseStore`` query chains, proving column names and key mapping
 (e.g. blood_group_needed, hospitals jsonb, hospital_name) are correct.
 """
+
 import asyncio
 
 from blood import compatible_donor_groups
@@ -30,7 +31,11 @@ def test_hospitals_with_distance_reads_table():
 def test_compatible_donors_nearby_via_rpc():
     store = _store()
     donors = store.compatible_donors_nearby(
-        26.9124, 75.7873, compatible_donor_groups("O+"), radius_meters=5000, cooldown_days=90
+        26.9124,
+        75.7873,
+        compatible_donor_groups("O+"),
+        radius_meters=5000,
+        cooldown_days=90,
     )
     compatible = set(compatible_donor_groups("O+"))
     assert all(d["blood_group"] in compatible for d in donors)
@@ -65,7 +70,9 @@ def test_full_flow_emergency_confirm_status():
 
     # A second hospital accepting is told the patient is already routed.
     if len(confs) > 1:
-        out2 = confirm_service.handle_confirmation(store, confs[1]["token"], accepted=True)
+        out2 = confirm_service.handle_confirmation(
+            store, confs[1]["token"], accepted=True
+        )
         assert out2["already_confirmed"] is True
 
 

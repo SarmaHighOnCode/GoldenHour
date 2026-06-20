@@ -5,6 +5,7 @@ between the same two points) for a few seconds during a burst of polling. Not a
 distributed cache — it lives in the worker process and is fine for a single-node
 demo deployment.
 """
+
 from __future__ import annotations
 
 import time

@@ -4,6 +4,7 @@ Thin HTTP layer: each route validates input with a schema, calls one service,
 and returns a schema. All business logic lives in ``services/``; all data access
 lives in ``store.py``. Endpoint shapes match ``API_CONTRACT.md`` exactly.
 """
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -29,6 +30,7 @@ from store import get_store
 from services import confirm_service, donor_service, emergency_service, sms_service
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)  # suppress URLs (contain API key)
 logger = logging.getLogger("goldenhour")
 
 
@@ -55,7 +57,9 @@ async def _prewarm_osm() -> None:
             lat_s, lng_s = pair.split(",")
             lat, lng = float(lat_s.strip()), float(lng_s.strip())
         except ValueError:
-            logger.warning("OSM_SEED_COORDS: invalid pair %r — expected 'lat,lng'", pair)
+            logger.warning(
+                "OSM_SEED_COORDS: invalid pair %r — expected 'lat,lng'", pair
+            )
             continue
         if store.is_region_fetched(lat, lng):
             continue
@@ -131,7 +135,9 @@ async def root():
     return {"service": settings.app_name, "version": settings.version, "docs": "/docs"}
 
 
-@app.get("/health", response_model=HealthResponse, tags=["meta"], summary="Liveness probe")
+@app.get(
+    "/health", response_model=HealthResponse, tags=["meta"], summary="Liveness probe"
+)
 async def health_check():
     """Liveness — cheap, no I/O (safe for frequent platform health checks)."""
     mode = "supabase" if settings.use_supabase else "in-memory"
@@ -192,9 +198,7 @@ async def get_emergency_status(request_id: str):
 async def confirm_hospital(token: str, request: HospitalConfirmRequest):
     """A hospital contact taps Accept (true) or Not Available (false)."""
     try:
-        return confirm_service.handle_confirmation(
-            get_store(), token, request.accepted
-        )
+        return confirm_service.handle_confirmation(get_store(), token, request.accepted)
     except confirm_service.ConfirmationNotFound:
         raise HTTPException(status_code=404, detail="Unknown confirmation token")
 
