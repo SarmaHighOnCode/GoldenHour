@@ -130,18 +130,19 @@ export default function DonorRegistration() {
   const isButtonDisabled = !name.trim() || !phone.trim() || !bloodGroup;
 
   return (
-    <Card 
-      className="w-full relative shadow-layered select-none" 
-      animateEntrance 
-      delayIndex={0}
-      role="region"
-      aria-labelledby="donor-heading"
-    >
-      {/* Visual Identity Highlight (Subtle Amber "Golden Hour" Accent Indicator) */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-goldenhour to-amber-500" 
-        role="presentation"
-      />
+    <div className="w-full max-w-md mx-auto">
+      <Card 
+        className="w-full relative shadow-layered select-none border border-slate-200/50" 
+        animateEntrance 
+        delayIndex={0}
+        role="region"
+        aria-labelledby="donor-heading"
+      >
+        {/* Visual Identity Highlight (GoldenHour crimson to amber stripe) */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency" 
+          role="presentation"
+        />
 
       <AnimatePresence mode="wait">
         {!isRegistered ? (
@@ -353,6 +354,7 @@ export default function DonorRegistration() {
           </motion.div>
         )}
       </AnimatePresence>
-    </Card>
+      </Card>
+    </div>
   );
 }

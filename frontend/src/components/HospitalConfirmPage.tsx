@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
@@ -14,9 +14,44 @@ export default function HospitalConfirmPage() {
   const [accepted, setAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hospitalName, setHospitalName] = useState('SMS Hospital');
+  
+  // Dynamic emergency details state
+  const [emergencyType, setEmergencyType] = useState('Trauma');
+  const [bloodGroup, setBloodGroup] = useState('O−');
+  const [etaMinutes, setEtaMinutes] = useState(6);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Interactive toggle to allow judges to test the "already routed" UI state
   const [alreadyConfirmed, setAlreadyConfirmed] = useState(false);
+
+  // Fetch confirmation request details on mount
+  useEffect(() => {
+    async function loadDetails() {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const data = await api.getHospitalConfirmDetails(token);
+        if (data) {
+          setHospitalName(data.hospital_name);
+          setEmergencyType(data.emergency_type.charAt(0).toUpperCase() + data.emergency_type.slice(1));
+          setBloodGroup(data.blood_group);
+          setEtaMinutes(data.eta_minutes);
+          setAlreadyConfirmed(data.already_confirmed);
+          if (data.responded) {
+            setAccepted(data.accepted);
+            setIsResponded(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Backend server offline or invalid token. Using mock/simulation details for demo.', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadDetails();
+  }, [token]);
 
   // Handle Dispatch Decisions
   const handleResponse = async (isAccepted: boolean) => {
@@ -57,8 +92,8 @@ export default function HospitalConfirmPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emergency opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emergency" />
           </span>
-          <span className="font-black text-base text-ink">
-            Golden<span className="text-goldenhour">Hour</span>
+          <span className="font-black text-sm tracking-tight text-ink flex items-center justify-center">
+            Golden<span className="text-emergency">Hour</span>
           </span>
         </div>
         
@@ -68,10 +103,33 @@ export default function HospitalConfirmPage() {
           </svg>
           Emergency Request
         </div>
+        {!isLoading && (
+          <h2 className="text-base font-extrabold text-ink mt-0.5 animate-fade-in">{hospitalName}</h2>
+        )}
       </div>
 
       <AnimatePresence mode="wait">
-        {!isResponded ? (
+        {isLoading ? (
+          <motion.div
+            key="loading-skeleton"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="w-full"
+          >
+            <Card animateEntrance={false} className="border-slate-100 p-5 space-y-4 animate-pulse">
+              <div className="space-y-3 pb-4">
+                <div className="h-10 bg-slate-100 rounded-xl" />
+                <div className="h-10 bg-slate-100 rounded-xl" />
+                <div className="h-10 bg-slate-100 rounded-xl" />
+              </div>
+              <div className="space-y-3">
+                <div className="h-14 bg-slate-100 rounded-xl" />
+                <div className="h-14 bg-slate-100 rounded-xl" />
+              </div>
+            </Card>
+          </motion.div>
+        ) : !isResponded ? (
           <motion.div
             key="dispatch-view"
             initial={{ opacity: 0, y: 10 }}
@@ -79,7 +137,7 @@ export default function HospitalConfirmPage() {
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            {/* Clean summary card (Fake/Static values matching API schema) */}
+            {/* Clean summary card (Dynamic values from API contract) */}
             <Card animateEntrance={false} className="border-slate-200">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -87,7 +145,7 @@ export default function HospitalConfirmPage() {
                     Emergency Type
                   </span>
                   <span className="text-sm font-extrabold text-ink bg-slate-100 px-3 py-1 rounded-lg">
-                    Trauma
+                    {emergencyType}
                   </span>
                 </div>
 
@@ -96,7 +154,7 @@ export default function HospitalConfirmPage() {
                     Blood Group Needed
                   </span>
                   <span className="text-sm font-black text-emergency bg-red-50 px-3 py-1 rounded-lg border border-red-100/30">
-                    O−
+                    {bloodGroup}
                   </span>
                 </div>
 
@@ -105,7 +163,7 @@ export default function HospitalConfirmPage() {
                     Patient ETA
                   </span>
                   <span className="text-sm font-black text-[#F59E0B] bg-amber-50 px-3 py-1 rounded-lg border border-amber-500/10">
-                    6 min away
+                    {etaMinutes} min away
                   </span>
                 </div>
               </div>

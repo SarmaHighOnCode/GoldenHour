@@ -129,30 +129,64 @@ export default function PatientResultsView() {
     console.log(`Establishing Supabase Realtime channel for request: ${id}`);
 
     const channel = supabase
-      .channel(`emergency-hospitals-${id}`)
+      .channel(`emergency-all-${id}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'hospitals',
-          filter: `request_id=eq.${id}`
+          table: 'confirmation_requests',
+          filter: `emergency_id=eq.${id}`
         },
         (payload: any) => {
-          console.log('Realtime DB update received:', payload);
-          const updatedHospital = payload.new;
-          if (updatedHospital) {
+          console.log('Realtime DB update received from confirmation_requests:', payload);
+          const updatedConf = payload.new;
+          if (updatedConf) {
             setHospitals(prev =>
               prev.map(h =>
-                h.hospital_id === updatedHospital.hospital_id
+                h.hospital_id === updatedConf.hospital_id
                   ? {
                       ...h,
-                      status: updatedHospital.status,
-                      eta_minutes: updatedHospital.eta_minutes ?? h.eta_minutes
+                      status: updatedConf.confirmed === true 
+                        ? 'confirmed' 
+                        : updatedConf.confirmed === false 
+                        ? 'declined' 
+                        : 'pending'
                     }
                   : h
               )
             );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'emergency_requests',
+          filter: `id=eq.${id}`
+        },
+        (payload: any) => {
+          console.log('Realtime DB update received from emergency_requests:', payload);
+          const updatedReq = payload.new;
+          if (updatedReq) {
+            setDonorsResponded(updatedReq.donors_responded ?? 0);
+            if (updatedReq.hospitals) {
+              setHospitals(prev => {
+                return updatedReq.hospitals.map((newH: any) => {
+                  const existing = prev.find(h => h.hospital_id === newH.hospital_id);
+                  return {
+                    hospital_id: newH.hospital_id,
+                    name: newH.name,
+                    eta_minutes: newH.eta_minutes,
+                    status: newH.status,
+                    department_match: existing ? existing.department_match : (newH.department_match ?? false),
+                    phone: existing ? existing.phone : (newH.phone ?? "+910000000000")
+                  };
+                });
+              });
+            }
           }
         }
       )
@@ -176,10 +210,10 @@ export default function PatientResultsView() {
   });
 
   return (
-    <div className="space-y-6 pb-28 select-none">
+    <div className="w-full max-w-md mx-auto space-y-6 pb-28 select-none">
       
       {/* Top Status Header */}
-      <div className="flex items-center justify-between border-b border-[#E5E2DD] pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div className="flex items-center gap-2">
           {/* Pulsing indicator */}
           <span className="relative flex h-3.5 w-3.5">
