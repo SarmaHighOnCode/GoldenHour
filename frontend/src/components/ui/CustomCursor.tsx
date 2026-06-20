@@ -23,8 +23,8 @@ export const CustomCursor: React.FC = () => {
     const ring = ringRef.current;
     if (!dot || !ring) return;
 
-    // Set initial offscreen positions
-    gsap.set([dot, ring], { xPercent: -50, yPercent: -50 });
+    // Set initial offscreen positions (prevents flash at 0,0 before first mousemove)
+    gsap.set([dot, ring], { x: -9999, y: -9999, xPercent: -50, yPercent: -50 });
 
     // GSAP quickTo for 60fps tracking without triggering React renders
     const xToDot = gsap.quickTo(dot, 'x', { duration: 0.08, ease: 'power3.out' });
@@ -194,10 +194,10 @@ export const CustomCursor: React.FC = () => {
           willChange: 'transform, width, height, border-radius, background-color',
         }}
       />
-      {/* Inner Pin Dot */}
+      {/* Inner Pin Dot — white + mix-blend-difference so it reads on any background */}
       <div
         ref={dotRef}
-        className="fixed top-0 left-0 w-2.5 h-2.5 bg-emergency rounded-full pointer-events-none z-[10000] mix-blend-difference"
+        className="fixed top-0 left-0 w-2 h-2 bg-white rounded-full pointer-events-none z-[10000] mix-blend-difference"
         style={{
           transform: 'translate(-50%, -50%)',
           willChange: 'transform',
