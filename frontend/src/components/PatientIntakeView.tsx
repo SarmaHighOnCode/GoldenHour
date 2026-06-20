@@ -243,17 +243,29 @@ export default function PatientIntakeView() {
           <AnimatePresence mode="popLayout">
             <motion.div
               key={currentSlide}
-              initial={{ scale: 1.15, opacity: 0 }}
-              animate={{ scale: 1, opacity: 0.35 }}
+              initial={{ scale: 1.12, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.55 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2.2, ease: "easeInOut" }}
+              transition={{ duration: 2.4, ease: "easeInOut" }}
               className="absolute inset-0 bg-cover bg-center bg-no-repeat"
               style={{ backgroundImage: `url(${BACKGROUND_SLIDES[currentSlide]})` }}
             />
           </AnimatePresence>
-          {/* Dark red/black radial and linear overlay to ensure readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0A0A0F]/80 to-[#0A0A0F] z-[1]" />
-          <div className="absolute inset-0 z-[1]" style={{ background: 'radial-gradient(circle, rgba(10,10,15,0.2) 20%, rgba(10,10,15,0.95) 90%)' }} />
+
+          {/* Layer 1: Dark base tint — makes image clearly textural, not muddy */}
+          <div className="absolute inset-0 z-[1] bg-[#0A0A0F]/75" />
+
+          {/* Layer 2: Top vignette — pushes nav area to full dark */}
+          <div className="absolute inset-0 z-[2] bg-gradient-to-b from-[#0A0A0F]/90 via-transparent to-transparent" />
+
+          {/* Layer 3: Bottom fade — seamlessly bleeds into next section */}
+          <div className="absolute inset-0 z-[2] bg-gradient-to-t from-[#0A0A0F] via-[#0A0A0F]/30 to-transparent" />
+
+          {/* Layer 4: Center spotlight inversion — keeps text area darkest */}
+          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(10,10,15,0.45) 0%, transparent 100%)' }} />
+
+          {/* Layer 5: Crimson ambient glow — accent behind CTA area */}
+          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 50% 40% at 50% 75%, rgba(220,38,38,0.12) 0%, transparent 70%)' }} />
         </div>
 
         {/* Three.js particle canvas with shader compile feedback callback overlay */}
@@ -266,6 +278,7 @@ export default function PatientIntakeView() {
           <h1
             ref={heroTitleRef}
             className="text-display-xl text-gradient overflow-hidden"
+            style={{ filter: 'drop-shadow(0 2px 20px rgba(0,0,0,0.8))' }}
           >
             Every Second Counts
           </h1>
@@ -274,6 +287,7 @@ export default function PatientIntakeView() {
           <p
             ref={heroSubRef}
             className="text-display-md text-dark-ink-muted max-w-2xl mx-auto opacity-0"
+            style={{ textShadow: '0 1px 12px rgba(0,0,0,0.9)' }}
           >
             Smart emergency dispatch. Nearest hospital. Matched blood donors.
             <span className="text-goldenhour font-bold"> All in real time.</span>
