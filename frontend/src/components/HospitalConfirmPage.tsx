@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { api } from '../lib/api';
+import { AuroraBackground, ShimmerSkeleton } from './ui/Effects';
 
 export default function HospitalConfirmPage() {
   // Read token from URL
@@ -83,52 +84,53 @@ export default function HospitalConfirmPage() {
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto space-y-6 select-none animate-fade-in">
-      
-      {/* Compact Header: Brand + Status Label */}
-      <div className="flex flex-col items-center justify-center text-center gap-1">
-        <div className="flex items-center gap-1">
-          <span className="relative flex h-2 w-2 mr-1">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emergency opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emergency" />
-          </span>
-          <span className="font-black text-sm tracking-tight text-ink flex items-center justify-center">
-            Golden<span className="text-emergency">Hour</span>
-          </span>
-        </div>
+    <AuroraBackground className="w-full min-h-[90vh] flex flex-col items-center justify-center py-10 px-4 rounded-3xl overflow-hidden bg-slate-50/50 border border-slate-200/10 shadow-lg">
+      <div className="w-full max-w-sm mx-auto space-y-6 select-none animate-fade-in relative z-10">
         
-        <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emergency-pressed">
-          <svg className="w-3.5 h-3.5 text-emergency" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          Emergency Request
+        {/* Compact Header: Brand + Status Label */}
+        <div className="flex flex-col items-center justify-center text-center gap-1">
+          <div className="flex items-center gap-1">
+            <span className="relative flex h-2 w-2 mr-1">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emergency opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emergency" />
+            </span>
+            <span className="font-black text-sm tracking-tight text-ink flex items-center justify-center">
+              Golden<span className="text-emergency">Hour</span>
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emergency-pressed">
+            <svg className="w-3.5 h-3.5 text-emergency" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Emergency Request
+          </div>
+          {!isLoading && (
+            <h2 className="text-base font-extrabold text-ink mt-0.5 animate-fade-in">{hospitalName}</h2>
+          )}
         </div>
-        {!isLoading && (
-          <h2 className="text-base font-extrabold text-ink mt-0.5 animate-fade-in">{hospitalName}</h2>
-        )}
-      </div>
 
-      <AnimatePresence mode="wait">
-        {isLoading ? (
-          <motion.div
-            key="loading-skeleton"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="w-full"
-          >
-            <Card animateEntrance={false} className="border-slate-100 p-5 space-y-4 animate-pulse">
-              <div className="space-y-3 pb-4">
-                <div className="h-10 bg-slate-100 rounded-xl" />
-                <div className="h-10 bg-slate-100 rounded-xl" />
-                <div className="h-10 bg-slate-100 rounded-xl" />
-              </div>
-              <div className="space-y-3">
-                <div className="h-14 bg-slate-100 rounded-xl" />
-                <div className="h-14 bg-slate-100 rounded-xl" />
-              </div>
-            </Card>
-          </motion.div>
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              key="loading-skeleton"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="w-full"
+            >
+              <Card animateEntrance={false} className="border-slate-100 p-5 space-y-4">
+                <div className="space-y-3 pb-4">
+                  <ShimmerSkeleton className="h-10 rounded-xl" />
+                  <ShimmerSkeleton className="h-10 rounded-xl" />
+                  <ShimmerSkeleton className="h-10 rounded-xl" />
+                </div>
+                <div className="space-y-3">
+                  <ShimmerSkeleton className="h-14 rounded-xl" />
+                  <ShimmerSkeleton className="h-14 rounded-xl" />
+                </div>
+              </Card>
+            </motion.div>
         ) : !isResponded ? (
           <motion.div
             key="dispatch-view"
@@ -278,6 +280,7 @@ export default function HospitalConfirmPage() {
           Secure token validation: {token}
         </p>
       </div>
-    </div>
+      </div>
+    </AuroraBackground>
   );
 }

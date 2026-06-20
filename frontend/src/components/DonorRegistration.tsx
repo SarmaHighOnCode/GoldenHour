@@ -6,6 +6,7 @@ import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { Button } from './ui/Button';
 import { api } from '../lib/api';
+import { AuroraBackground } from './ui/Effects';
 
 export default function DonorRegistration() {
   const navigate = useNavigate();
@@ -138,14 +139,15 @@ export default function DonorRegistration() {
   const isButtonDisabled = !name.trim() || !phone.trim() || !bloodGroup;
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <Card 
-        className="w-full relative shadow-layered select-none border border-slate-200/50" 
-        animateEntrance 
-        delayIndex={0}
-        role="region"
-        aria-labelledby="donor-heading"
-      >
+    <AuroraBackground className="w-full min-h-[80vh] flex items-center justify-center py-8 px-4 rounded-3xl overflow-hidden bg-slate-50/50 border border-slate-200/10 shadow-lg">
+      <div className="w-full max-w-md mx-auto relative z-10">
+        <Card 
+          className="w-full relative shadow-layered select-none border border-slate-200/50" 
+          animateEntrance 
+          delayIndex={0}
+          role="region"
+          aria-labelledby="donor-heading"
+        >
         {/* Visual Identity Highlight (GoldenHour crimson to amber stripe) */}
         <div 
           className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency" 
@@ -370,7 +372,8 @@ export default function DonorRegistration() {
           </motion.div>
         )}
       </AnimatePresence>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </AuroraBackground>
   );
 }

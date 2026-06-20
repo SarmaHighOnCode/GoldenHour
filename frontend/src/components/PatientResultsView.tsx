@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './ui/Card';
-import { Badge } from './ui/Badge';
 import { api } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { GlassCard, CountUp, ShimmerSkeleton, AnimatedStatusBadge } from './ui/Effects';
 
 interface Hospital {
   hospital_id: string;
@@ -338,17 +338,17 @@ export default function PatientResultsView() {
               {[1, 2, 3].map((idx) => (
                 <div 
                   key={idx} 
-                  className="bg-white rounded-2xl p-5 shadow-layered border border-slate-100/50 space-y-4 animate-pulse"
+                  className="bg-white rounded-2xl p-5 shadow-layered border border-slate-100/50 space-y-4"
                 >
                   <div className="flex justify-between items-start">
                     <div className="space-y-2 w-2/3">
-                      <div className="h-5 bg-slate-100 rounded w-5/6" />
-                      <div className="h-3.5 bg-slate-100/80 rounded w-1/3" />
+                      <ShimmerSkeleton className="h-5 w-5/6 rounded-md" />
+                      <ShimmerSkeleton className="h-3.5 w-1/3 rounded-md" />
                     </div>
-                    <div className="h-6 bg-slate-100 rounded-full w-16" />
+                    <ShimmerSkeleton className="h-6 w-16 rounded-full" />
                   </div>
-                  <div className="h-5 bg-slate-100 rounded w-28" />
-                  <div className="h-14 bg-slate-100 rounded-xl w-full" />
+                  <ShimmerSkeleton className="h-5 w-28 rounded-md" />
+                  <ShimmerSkeleton className="h-14 w-full rounded-xl" />
                 </div>
               ))}
             </motion.div>
@@ -440,7 +440,7 @@ export default function PatientResultsView() {
                         )}
                       </div>
 
-                      <Badge status={h.status} />
+                      <AnimatedStatusBadge status={h.status} />
                     </div>
 
                     {/* Badging: ETA */}
@@ -449,7 +449,7 @@ export default function PatientResultsView() {
                         <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        {h.eta_minutes} min ETA
+                        <CountUp to={h.eta_minutes} suffix=" min ETA" />
                       </span>
                     </div>
 
@@ -477,26 +477,34 @@ export default function PatientResultsView() {
       </div>
 
       {/* Pinned Bottom Donor Panel */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#FBFAF8]/90 backdrop-blur-md border-t border-[#E5E2DD] p-4 shadow-lg z-40">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-emergency font-extrabold text-sm flex items-center gap-1.5 leading-none">
-              <svg className="w-4.5 h-4.5 text-emergency animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-              </svg>
-              {donorsAlerted} donors alerted nearby
-            </span>
-            <span className="text-[11px] text-slate-500 font-semibold pl-6">
-              {donorsResponded > 0 ? `${donorsResponded} responded` : 'Waiting for responses'}
-            </span>
-          </div>
+      <div className="fixed bottom-0 left-0 right-0 p-4 z-40">
+        <div className="max-w-md mx-auto">
+          <GlassCard className="flex items-center justify-between !p-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-emergency font-extrabold text-sm flex items-center gap-1.5 leading-none">
+                <svg className="w-4.5 h-4.5 text-emergency animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                </svg>
+                <CountUp to={donorsAlerted} className="font-extrabold" /> donors alerted nearby
+              </span>
+              <span className="text-[11px] text-[#64748B] font-semibold pl-6">
+                {donorsResponded > 0 ? (
+                  <>
+                    <CountUp to={donorsResponded} className="font-bold" /> responded
+                  </>
+                ) : (
+                  'Waiting for responses'
+                )}
+              </span>
+            </div>
 
-          {/* Blood drop placeholder badge */}
-          <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
-            <svg className="w-5 h-5 text-rose-500 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-            </svg>
-          </div>
+            {/* Blood drop placeholder badge */}
+            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
+              <svg className="w-5 h-5 text-rose-500 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+              </svg>
+            </div>
+          </GlassCard>
         </div>
       </div>
 
