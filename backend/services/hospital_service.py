@@ -147,23 +147,25 @@ def _parse_osm_elements(elements: list) -> List[Dict]:
 
 
 def _parse_places_results(results: list) -> List[Dict]:
-    """Convert Google Places Nearby Search results to hospital dicts."""
+    """Convert Places API (New) searchNearby results to hospital dicts."""
     rng = random.Random()
     seen: set = set()
     hospitals: List[Dict] = []
     for place in results:
-        name = place.get("name")
+        # Places API (New) uses displayName.text instead of name
+        display = place.get("displayName", {})
+        name = display.get("text") if isinstance(display, dict) else place.get("name")
         if not name or name.lower() in seen:
             continue
         depts = _assign_departments(name)
         if not depts:
             continue
         seen.add(name.lower())
-        loc = place.get("geometry", {}).get("location", {})
-        h_lat, h_lng = loc.get("lat"), loc.get("lng")
+        loc = place.get("location", {})
+        h_lat, h_lng = loc.get("latitude"), loc.get("longitude")
         if h_lat is None or h_lng is None:
             continue
-        place_id = place.get("place_id", "")
+        place_id = place.get("id", place.get("place_id", ""))
         hospitals.append(
             {
                 "id": f"gp-{place_id}",
@@ -181,22 +183,31 @@ def _parse_places_results(results: list) -> List[Dict]:
 
 
 async def _fetch_from_google_places(lat: float, lng: float) -> List[Dict]:
-    """Query Google Places Nearby Search. Requires GOOGLE_MAPS_API_KEY."""
+    """Query Places API (New) Nearby Search. Requires GOOGLE_MAPS_API_KEY."""
     if not settings.google_maps_api_key:
         return []
     radius_m = int(_OSM_RADIUS_KM * 1000)
-    params = urllib.parse.urlencode(
+    url = "https://places.googleapis.com/v1/places:searchNearby"
+    body = json.dumps(
         {
-            "location": f"{lat},{lng}",
-            "radius": radius_m,
-            "type": "hospital",
-            "key": settings.google_maps_api_key,
+            "includedTypes": ["hospital"],
+            "locationRestriction": {
+                "circle": {
+                    "center": {"latitude": lat, "longitude": lng},
+                    "radius": radius_m,
+                }
+            },
+            "maxResultCount": 20,
         }
-    )
-    url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?{params}"
+    ).encode()
 
     def _do():
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("X-Goog-Api-Key", settings.google_maps_api_key)
+        req.add_header(
+            "X-Goog-FieldMask", "places.id,places.displayName,places.location"
+        )
         req.add_header("User-Agent", "GoldenHour-Emergency/1.0")
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read())
@@ -206,10 +217,13 @@ async def _fetch_from_google_places(lat: float, lng: float) -> List[Dict]:
             "Google Places fetch: lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM
         )
         data = await asyncio.wait_for(asyncio.to_thread(_do), timeout=12)
-        if data.get("status") not in ("OK", "ZERO_RESULTS"):
-            logger.warning("Google Places error: %s", data.get("status"))
+        if "error" in data:
+            logger.warning(
+                "Google Places error: %s",
+                data["error"].get("message", data["error"]),
+            )
             return []
-        hospitals = _parse_places_results(data.get("results", []))
+        hospitals = _parse_places_results(data.get("places", []))
         logger.info("Google Places fetch: %d hospitals", len(hospitals))
         return hospitals
     except Exception as exc:
