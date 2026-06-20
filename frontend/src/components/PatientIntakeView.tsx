@@ -349,7 +349,7 @@ export default function PatientIntakeView() {
           <CardReveal direction="left" className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-emergency/10 border border-emergency/20 rounded-full">
               <span className="w-2 h-2 rounded-full bg-emergency animate-pulse" />
-              <span className="text-[10px] font-black text-emergency uppercase tracking-widest">Emergency Console</span>
+              <span className="text-[10px] font-black text-emergency uppercase tracking-widest">Live Dispatch</span>
             </div>
             <h2 className="text-display-lg text-dark-ink">
               Lock. Dispatch. <span className="text-gradient">Save.</span>

@@ -102,7 +102,7 @@ export const AppBar: React.FC = () => {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
           </span>
-          <span className="text-[10px] font-black text-success tracking-widest uppercase">Console Active</span>
+          <span className="text-[10px] font-black text-success tracking-widest uppercase">Live</span>
         </div>
       </div>
     </header>
