@@ -20,6 +20,7 @@ from schemas import (
     EmergencyResponse,
     EmergencyStatusResponse,
     HealthResponse,
+    HospitalConfirmDetailsResponse,
     HospitalConfirmRequest,
     HospitalConfirmResponse,
     SmsInboundRequest,
@@ -187,6 +188,20 @@ async def get_emergency_status(request_id: str):
         return emergency_service.get_status(get_store(), request_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Unknown request_id")
+
+
+@app.get(
+    "/confirm/{token}",
+    response_model=HospitalConfirmDetailsResponse,
+    tags=["confirmation"],
+    summary="Confirmation details for the hospital page",
+)
+async def get_confirmation(token: str):
+    """The emergency details a hospital sees when it opens its one-tap link."""
+    try:
+        return confirm_service.get_confirmation_details(get_store(), token)
+    except confirm_service.ConfirmationNotFound:
+        raise HTTPException(status_code=404, detail="Unknown confirmation token")
 
 
 @app.post(

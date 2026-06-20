@@ -77,6 +77,21 @@ class HospitalConfirmResponse(BaseModel):
     already_confirmed: bool
 
 
+# --- GET /confirm/{token} --------------------------------------------------
+class HospitalConfirmDetailsResponse(BaseModel):
+    """What the hospital sees when it opens its one-tap link (before replying)."""
+
+    hospital_name: str
+    emergency_type: str
+    blood_group: str
+    eta_minutes: int
+    # True when another hospital has already taken this patient.
+    already_confirmed: bool
+    # Whether this hospital has already replied, and if so what it chose.
+    responded: bool
+    accepted: bool
+
+
 # --- POST /donor/register --------------------------------------------------
 class DonorRegisterRequest(BaseModel):
     name: str

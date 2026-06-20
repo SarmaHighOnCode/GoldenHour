@@ -70,6 +70,28 @@ This is the single most important document for the team. Both the backend (You) 
   hospital confirmed. Cue for the UI to surface the nearest hospitals with a
   1-tap call button (the phones from the `POST /emergency` response). Safe to ignore.
 
+## Endpoint 3a — Hospital confirmation page details
+`GET /confirm/{token}`
+
+Hit when the hospital contact **opens** their link, so the page can show the real
+emergency details (instead of placeholders).
+
+**Backend returns:**
+```json
+{
+  "hospital_name": "SMS Hospital",
+  "emergency_type": "trauma",
+  "blood_group": "O+",
+  "eta_minutes": 6,
+  "already_confirmed": false,
+  "responded": false,
+  "accepted": false
+}
+```
+- `already_confirmed` is `true` if another hospital already took this patient.
+- `responded` is `true` if this hospital has already replied; `accepted` is its choice.
+- Unknown token → **404**.
+
 ## Endpoint 3 — Hospital taps Accept / Decline
 `POST /confirm/{token}`
 

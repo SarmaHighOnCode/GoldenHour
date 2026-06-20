@@ -135,6 +135,57 @@ def test_confirm_unknown_token_is_404(client):
     assert resp.status_code == 404
 
 
+# --- GET /confirm/{token} — details for the hospital page ------------------
+def test_confirm_details_shape_and_values(client):
+    request_id = _trigger(client, emergency_type="trauma", blood_group="O+").json()[
+        "request_id"
+    ]
+    store = store_module.get_store()
+    conf = store.confirmations_for_emergency(request_id)[0]
+
+    body = client.get(f"/confirm/{conf['token']}").json()
+    assert set(body) == {
+        "hospital_name",
+        "emergency_type",
+        "blood_group",
+        "eta_minutes",
+        "already_confirmed",
+        "responded",
+        "accepted",
+    }
+    assert body["emergency_type"] == "trauma"
+    assert body["blood_group"] == "O+"
+    assert body["hospital_name"] == conf["hospital_name"]
+    assert isinstance(body["eta_minutes"], int)
+    # Freshly created, nobody has replied yet.
+    assert body["already_confirmed"] is False
+    assert body["responded"] is False
+    assert body["accepted"] is False
+
+
+def test_confirm_details_reflects_reply_and_race(client):
+    request_id = _trigger(client).json()["request_id"]
+    store = store_module.get_store()
+    confs = store.confirmations_for_emergency(request_id)
+    first, second = confs[0], confs[1]
+
+    client.post(f"/confirm/{first['token']}", json={"accepted": True})
+
+    # The hospital that accepted sees responded/accepted true.
+    winner = client.get(f"/confirm/{first['token']}").json()
+    assert winner["responded"] is True
+    assert winner["accepted"] is True
+
+    # Another hospital sees the patient is already routed.
+    other = client.get(f"/confirm/{second['token']}").json()
+    assert other["already_confirmed"] is True
+    assert other["responded"] is False
+
+
+def test_confirm_details_unknown_token_is_404(client):
+    assert client.get("/confirm/does-not-exist").status_code == 404
+
+
 # --- POST /donor/register --------------------------------------------------
 def test_register_donor(client):
     resp = client.post(
