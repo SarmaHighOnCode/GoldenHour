@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 300" role="img" aria-label="GoldenHour — one request, the right hospital and ready blood, inside the hour that decides">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#13203B"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FCD34D"/>
+      <stop offset="0.55" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.28" r="0.85">
+      <stop offset="0" stop-color="#F59E0B" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      .t { font-family: 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="1100" height="300" rx="18" fill="url(#bg)"/>
+  <rect width="1100" height="300" rx="18" fill="url(#glow)"/>
+
+  <!-- heartbeat / golden-hour pulse -->
+  <polyline points="60,250 300,250 330,250 350,212 372,288 398,150 420,250 470,250 492,224 512,250 1040,250"
+            fill="none" stroke="#F0506E" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" opacity="0.55"/>
+
+  <!-- clock ring + heart motif (right) -->
+  <g transform="translate(930,118)">
+    <circle r="78" fill="none" stroke="#22324F" stroke-width="14"/>
+    <circle r="78" fill="none" stroke="url(#gold)" stroke-width="14" stroke-linecap="round"
+            stroke-dasharray="300 490" transform="rotate(-90)"/>
+    <path d="M0,30 C-34,2 -52,-22 -30,-40 C-16,-50 -2,-42 0,-30 C2,-42 16,-50 30,-40 C52,-22 34,2 0,30 Z"
+          fill="#F0506E"/>
+  </g>
+
+  <text x="60" y="118" class="t" font-size="70" font-weight="700" fill="url(#gold)">GoldenHour</text>
+  <text x="63" y="160" class="t" font-size="22" fill="#C7D4E8">One request &#8594; the right hospital and ready blood,</text>
+  <text x="63" y="190" class="t" font-size="22" fill="#C7D4E8">inside the hour that decides.</text>
+
+  <!-- tag chips -->
+  <g class="t" font-size="14" fill="#9FB0CC">
+    <g transform="translate(63,222)">
+      <rect width="140" height="30" rx="15" fill="#16223C" stroke="#2A3A5C"/>
+      <text x="70" y="20" text-anchor="middle">Healthcare Tech</text>
+    </g>
+    <g transform="translate(213,222)">
+      <rect width="118" height="30" rx="15" fill="#16223C" stroke="#2A3A5C"/>
+      <text x="59" y="20" text-anchor="middle">Social Impact</text>
+    </g>
+    <g transform="translate(341,222)">
+      <rect width="86" height="30" rx="15" fill="#16223C" stroke="#2A3A5C"/>
+      <text x="43" y="20" text-anchor="middle">FastAPI</text>
+    </g>
+    <g transform="translate(437,222)">
+      <rect width="94" height="30" rx="15" fill="#16223C" stroke="#2A3A5C"/>
+      <text x="47" y="20" text-anchor="middle">Supabase</text>
+    </g>
+    <g transform="translate(541,222)">
+      <rect width="80" height="30" rx="15" fill="#16223C" stroke="#2A3A5C"/>
+      <text x="40" y="20" text-anchor="middle">PostGIS</text>
+    </g>
+  </g>
+</svg>

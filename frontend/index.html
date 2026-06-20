@@ -3,11 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Primary meta tags -->
+    <title>GoldenHour — Every Second Counts</title>
+    <meta
+      name="description"
+      content="GoldenHour turns one GPS-triggered emergency into two parallel actions: find and confirm a hospital with the right department and a free bed, and alert nearby compatible blood donors — built for families who self-transport to hospital."
+    />
+    <meta name="author" content="Team GoldenHour" />
+    <meta name="keywords" content="emergency, healthcare, blood donor, hospital, India, PWA, ambulance alternative, golden hour" />
+    <meta name="theme-color" content="#dc2626" />
+
+    <!-- PWA / mobile -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="GoldenHour" />
+
+    <!-- Open Graph / social -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="GoldenHour — Emergency Hospital & Blood Response" />
+    <meta
+      property="og:description"
+      content="One tap finds a hospital with the right department and a free bed, and alerts nearby compatible blood donors. Built for the self-transporting family in India."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GoldenHour — Emergency Hospital & Blood Response" />
+    <meta
+      name="twitter:description"
+      content="One tap finds a hospital with the right department and a free bed, and alerts nearby compatible blood donors."
+    />
+
+    <!-- Inter Font for Emergency Console Look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+    </style>
   </head>
-  <body>
+  <body class="bg-[#FBFAF8] text-[#1A1714] selection:bg-rose-500/10 selection:text-rose-700">
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -7,13 +7,26 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: DATABASE_URL
+      # Set both SUPABASE_URL and SUPABASE_ANON_KEY to run against the real
+      # database; with either missing the API falls back to in-memory demo mode.
+      - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
+        sync: false
+      # Trusted server-side key (preferred for backend writes; bypasses RLS).
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: DATABASE_URL
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
       - key: MSG91_AUTH_KEY
+        sync: false
+      # Public URL of the deployed frontend — used for /confirm/<token> links
+      # and CORS. Update after the frontend is deployed.
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
         sync: false
       - key: PYTHON_VERSION
         value: 3.12.0
