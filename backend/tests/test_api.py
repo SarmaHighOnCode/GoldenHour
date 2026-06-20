@@ -92,7 +92,10 @@ def test_status_shape(client):
     # Freshly created — well inside the no-confirmation window.
     assert body["unconfirmed_fallback"] is False
     card = body["hospitals"][0]
-    assert set(card) == {"hospital_id", "name", "eta_minutes", "status"}
+    assert set(card) == {
+        "hospital_id", "name", "eta_minutes", "status",
+        "department_match", "phone"
+    }
 
 
 # --- POST /confirm/{token} — the live flow --------------------------------

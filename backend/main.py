@@ -18,6 +18,8 @@ from schemas import (
     EmergencyResponse,
     EmergencyStatusResponse,
     HealthResponse,
+    HospitalConfirmRequest,
+    HospitalConfirmResponse,
     HospitalConfirmDetailsResponse,
     SmsInboundRequest,
     SmsInboundResponse,

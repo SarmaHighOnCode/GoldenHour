@@ -52,6 +52,7 @@ class HospitalStatusCard(BaseModel):
     hospital_id: str
     name: str
     eta_minutes: int
+    status: HospitalStatus
     department_match: Optional[bool] = None
     phone: Optional[str] = None
 

@@ -15,6 +15,7 @@ export default function DonorRegistration() {
   const [phone, setPhone] = useState('');
   const [bloodGroup, setBloodGroup] = useState('');
   const [lastDonated, setLastDonated] = useState('');
+  const [sex, setSex] = useState<'male' | 'female' | ''>('');
   
   // Geolocation State
   const [locating, setLocating] = useState(false);
@@ -91,7 +92,8 @@ export default function DonorRegistration() {
         bloodGroup,
         coords?.lat ?? null,
         coords?.lng ?? null,
-        lastDonated || null
+        lastDonated || null,
+        sex || null
       );
 
       if (data && data.ok) {
@@ -124,6 +126,12 @@ export default function DonorRegistration() {
     { value: 'B-', label: 'B-' },
     { value: 'AB+', label: 'AB+' },
     { value: 'AB-', label: 'AB-' }
+  ];
+
+  const sexOptions = [
+    { value: '', label: '-- Select Sex (Optional) --' },
+    { value: 'male', label: 'Male (90 days cooldown)' },
+    { value: 'female', label: 'Female (120 days cooldown)' }
   ];
 
   // Disable check: Name, Phone, and Blood Group must be populated
@@ -197,6 +205,14 @@ export default function DonorRegistration() {
                 error={errors.blood}
                 required
                 aria-required="true"
+              />
+
+              {/* Sex Selector */}
+              <Select
+                label="Sex (Optional)"
+                value={sex}
+                onChange={(e) => setSex(e.target.value as 'male' | 'female' | '')}
+                options={sexOptions}
               />
 
               {/* GPS Coordinates Locker */}
