@@ -1,8 +1,20 @@
 {
-  "name": "frontend",
+  "name": "goldenhour-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "description": "GoldenHour PWA — patient emergency intake, live hospital results, donor registration, and the hospital confirmation page. React + Vite + Tailwind.",
+  "keywords": [
+    "goldenhour",
+    "emergency",
+    "healthcare",
+    "blood-donor",
+    "pwa",
+    "react",
+    "vite"
+  ],
+  "author": "Team GoldenHour",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

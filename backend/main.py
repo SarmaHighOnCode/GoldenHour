@@ -18,8 +18,6 @@ from schemas import (
     EmergencyResponse,
     EmergencyStatusResponse,
     HealthResponse,
-    HospitalConfirmRequest,
-    HospitalConfirmResponse,
     HospitalConfirmDetailsResponse,
     SmsInboundRequest,
     SmsInboundResponse,
@@ -189,8 +187,6 @@ async def get_confirmation_details(token: str):
         responded=responded,
         accepted=accepted
     )
-
-
 @app.post(
     "/confirm/{token}",
     response_model=HospitalConfirmResponse,

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 500" role="img" aria-label="GoldenHour backend architecture: three layers and two interchangeable stores">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B1220"/><stop offset="1" stop-color="#101B31"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FBBF24"/><stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <marker id="ad" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#7C8AA5"/>
+    </marker>
+    <style>
+      .t{font-family:'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif;}
+      .h{font-weight:700;fill:#E6EDF7;}
+      .sub{fill:#9FB0CC;}
+    </style>
+  </defs>
+
+  <rect width="1100" height="500" rx="16" fill="url(#bg3)"/>
+  <text x="40" y="42" class="t h" font-size="22" fill="#FBBF24">Backend architecture &#8212; three layers, two interchangeable stores</text>
+
+  <!-- Layer 1: routes -->
+  <rect x="60" y="64" width="700" height="68" rx="12" fill="#1A1206" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="84" y="94" class="t h" font-size="17">HTTP routes &#183; main.py</text>
+  <text x="84" y="118" class="t sub" font-size="13.5">validate (schemas.py) &#8594; call exactly one service &#8594; return a schema</text>
+
+  <line x1="410" y1="132" x2="410" y2="156" stroke="#7C8AA5" stroke-width="2" marker-end="url(#ad)"/>
+
+  <!-- Layer 2: services -->
+  <rect x="60" y="160" width="700" height="68" rx="12" fill="#0E2233" stroke="#38BDF8" stroke-width="1.5"/>
+  <text x="84" y="190" class="t h" font-size="17">Service layer &#183; services/</text>
+  <text x="84" y="214" class="t sub" font-size="13.5">ranking &#183; matching &#183; confirmation &#183; ETA &#183; SMS/alerts &#183; realtime</text>
+
+  <line x1="410" y1="228" x2="410" y2="252" stroke="#7C8AA5" stroke-width="2" marker-end="url(#ad)"/>
+
+  <!-- Layer 3: data -->
+  <rect x="60" y="256" width="700" height="52" rx="12" fill="#13203B" stroke="#94A3B8" stroke-width="1.5"/>
+  <text x="84" y="288" class="t h" font-size="17">Data layer &#183; store.py</text>
+  <text x="304" y="288" class="t sub" font-size="13.5">get_store() picks one &#8594;</text>
+
+  <!-- two stores -->
+  <rect x="80" y="324" width="320" height="92" rx="12" fill="#1A1530" stroke="#A78BFA" stroke-width="1.5"/>
+  <text x="240" y="356" text-anchor="middle" class="t h" font-size="16" fill="#C4B5FD">InMemoryStore</text>
+  <text x="240" y="380" text-anchor="middle" class="t sub" font-size="13">demo / CI &#183; seeded 25 hospitals</text>
+  <text x="240" y="399" text-anchor="middle" class="t sub" font-size="13">+ 180 donors &#183; haversine</text>
+
+  <rect x="420" y="324" width="320" height="92" rx="12" fill="#10271A" stroke="#34D399" stroke-width="1.5"/>
+  <text x="580" y="356" text-anchor="middle" class="t h" font-size="16" fill="#6EE7B7">SupabaseStore</text>
+  <text x="580" y="380" text-anchor="middle" class="t sub" font-size="13">PostgreSQL + PostGIS &#183; donors_nearby</text>
+  <text x="580" y="399" text-anchor="middle" class="t sub" font-size="13">RPC &#183; Realtime &#183; production</text>
+
+  <!-- side note: external -->
+  <rect x="790" y="64" width="260" height="344" rx="12" fill="#16223C" stroke="#2A3A5C"/>
+  <text x="810" y="92" class="t h" font-size="15" fill="#FBBF24">External (prod only)</text>
+  <text x="810" y="124" class="t sub" font-size="13.5">Google Maps Distance</text>
+  <text x="810" y="143" class="t sub" font-size="13.5">Matrix &#8212; real drive ETA</text>
+  <text x="810" y="178" class="t sub" font-size="13.5">MSG91 / Gupshup + DLT</text>
+  <text x="810" y="197" class="t sub" font-size="13.5">&#8212; production SMS</text>
+  <text x="810" y="232" class="t sub" font-size="13.5">Supabase Realtime</text>
+  <text x="810" y="251" class="t sub" font-size="13.5">&#8212; live status push</text>
+  <line x1="810" y1="278" x2="1030" y2="278" stroke="#2A3A5C"/>
+  <text x="810" y="306" class="t sub" font-size="12.5">Absent these vars, the API</text>
+  <text x="810" y="325" class="t sub" font-size="12.5">runs fully in demo mode</text>
+  <text x="810" y="344" class="t sub" font-size="12.5">&#8212; zero external services,</text>
+  <text x="810" y="363" class="t sub" font-size="12.5">CI needs no database.</text>
+
+  <!-- shared contract ribbon -->
+  <rect x="60" y="436" width="990" height="40" rx="20" fill="url(#ribbon)"/>
+  <text x="555" y="461" text-anchor="middle" class="t" font-weight="700" font-size="15" fill="#1A1206">API_CONTRACT.md &#8212; the shared request/response shapes both sides build against</text>
+</svg>

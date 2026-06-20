@@ -52,7 +52,6 @@ class HospitalStatusCard(BaseModel):
     hospital_id: str
     name: str
     eta_minutes: int
-    status: HospitalStatus
     department_match: Optional[bool] = None
     phone: Optional[str] = None
 
@@ -76,8 +75,6 @@ class HospitalConfirmDetailsResponse(BaseModel):
     already_confirmed: bool
     responded: bool
     accepted: bool
-
-
 # --- POST /confirm/{token} -------------------------------------------------
 class HospitalConfirmRequest(BaseModel):
     accepted: bool

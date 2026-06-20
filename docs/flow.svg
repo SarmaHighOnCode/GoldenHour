@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 540" role="img" aria-label="GoldenHour request flow: one emergency triggers two parallel actions">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#101B31"/>
+    </linearGradient>
+    <linearGradient id="gold2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FBBF24"/><stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#5C6E8C"/>
+    </marker>
+    <marker id="aht" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#38BDF8"/>
+    </marker>
+    <marker id="ahr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#F0506E"/>
+    </marker>
+    <style>
+      .t{font-family:'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif;}
+      .h{font-weight:700;}
+      .lbl{fill:#E6EDF7;}
+      .sub{fill:#9FB0CC;}
+    </style>
+  </defs>
+
+  <rect width="1100" height="540" rx="16" fill="url(#bg2)"/>
+  <text x="40" y="44" class="t h" font-size="22" fill="url(#gold2)">One request &#8594; two parallel actions</text>
+
+  <!-- emergency trigger -->
+  <g class="t">
+    <rect x="350" y="64" width="400" height="70" rx="12" fill="#1A1206" stroke="#F59E0B" stroke-width="1.5"/>
+    <text x="550" y="94" text-anchor="middle" class="h lbl" font-size="18">POST /emergency</text>
+    <text x="550" y="118" text-anchor="middle" class="sub" font-size="14">GPS lat/lng &#183; emergency type &#183; blood group</text>
+  </g>
+
+  <!-- split arrows -->
+  <path d="M470,134 C400,168 300,160 275,182" fill="none" stroke="#38BDF8" stroke-width="2" marker-end="url(#aht)"/>
+  <path d="M630,134 C700,168 800,160 825,182" fill="none" stroke="#F0506E" stroke-width="2" marker-end="url(#ahr)"/>
+
+  <!-- LEFT: hospital branch -->
+  <g class="t">
+    <rect x="95" y="186" width="360" height="74" rx="12" fill="#0E2233" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="275" y="214" text-anchor="middle" class="h lbl" font-size="16" fill="#7DD3FC">Rank hospitals</text>
+    <text x="275" y="238" text-anchor="middle" class="sub" font-size="13.5">proximity &#183; department &#183; reliability (gated)</text>
+
+    <line x1="275" y1="260" x2="275" y2="296" stroke="#38BDF8" stroke-width="2" marker-end="url(#aht)"/>
+    <rect x="95" y="300" width="360" height="64" rx="12" fill="#0E2233" stroke="#2A4A60"/>
+    <text x="275" y="338" text-anchor="middle" class="lbl" font-size="15">Send 1-tap confirm link to each</text>
+
+    <line x1="275" y1="364" x2="275" y2="400" stroke="#38BDF8" stroke-width="2" marker-end="url(#aht)"/>
+    <rect x="95" y="404" width="360" height="64" rx="12" fill="#10271A" stroke="#34D399"/>
+    <text x="275" y="442" text-anchor="middle" class="h lbl" font-size="15" fill="#A7F3D0">First to Accept = routed hospital</text>
+  </g>
+
+  <!-- RIGHT: blood branch -->
+  <g class="t">
+    <rect x="645" y="186" width="360" height="74" rx="12" fill="#2A0F16" stroke="#F0506E" stroke-width="1.5"/>
+    <text x="825" y="214" text-anchor="middle" class="h lbl" font-size="16" fill="#FCA5B4">Match donors</text>
+    <text x="825" y="238" text-anchor="middle" class="sub" font-size="13.5">ABO/Rh &#183; within 5 km &#183; sex-aware cooldown</text>
+
+    <line x1="825" y1="260" x2="825" y2="296" stroke="#F0506E" stroke-width="2" marker-end="url(#ahr)"/>
+    <rect x="645" y="300" width="360" height="64" rx="12" fill="#2A0F16" stroke="#5C2A33"/>
+    <text x="825" y="338" text-anchor="middle" class="lbl" font-size="15">Alert nearest top-K donors</text>
+
+    <line x1="825" y1="364" x2="825" y2="400" stroke="#F0506E" stroke-width="2" marker-end="url(#ahr)"/>
+    <rect x="645" y="404" width="360" height="64" rx="12" fill="#10271A" stroke="#34D399"/>
+    <text x="825" y="437" text-anchor="middle" class="h lbl" font-size="14.5" fill="#A7F3D0">&#8594; Licensed blood bank</text>
+    <text x="825" y="456" text-anchor="middle" class="sub" font-size="12">not the emergency ward</text>
+  </g>
+
+  <!-- realtime footer -->
+  <rect x="250" y="492" width="600" height="34" rx="17" fill="#13203B" stroke="#2A3A5C"/>
+  <text x="550" y="514" text-anchor="middle" class="t sub" font-size="14">Patient screen updates live &#8212; Supabase Realtime / polling</text>
+</svg>
