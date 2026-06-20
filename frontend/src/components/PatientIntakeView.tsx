@@ -11,6 +11,12 @@ import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { api } from '../lib/api';
 
+const BACKGROUND_SLIDES = [
+  '/hero_app_mockup.png',
+  '/hero_ambulance.png',
+  '/hero_paramedics.png',
+];
+
 export default function PatientIntakeView() {
   const navigate = useNavigate();
 
@@ -27,6 +33,16 @@ export default function PatientIntakeView() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSceneLoaded, setIsSceneLoaded] = useState<boolean>(false);
+
+  // Background slide carousel
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % BACKGROUND_SLIDES.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Refs for GSAP animations
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
@@ -220,9 +236,29 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 1: HERO — Full screen dark canvas
           ============================================= */}
-      <section className="editorial-section glow-amber glow-crimson grid-overlay relative">
-        {/* Three.js particle canvas with shader compile feedback callback */}
-        <HeroScene onLoaded={() => setIsSceneLoaded(true)} />
+      <section className="editorial-section glow-amber glow-crimson relative overflow-hidden">
+        {/* Background Slide Carousel with Ken Burns Motion Effect */}
+        <div className="absolute inset-0 z-0">
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={currentSlide}
+              initial={{ scale: 1.15, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.35 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2.2, ease: "easeInOut" }}
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${BACKGROUND_SLIDES[currentSlide]})` }}
+            />
+          </AnimatePresence>
+          {/* Dark red/black radial and linear overlay to ensure readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0A0A0F]/80 to-[#0A0A0F] z-[1]" />
+          <div className="absolute inset-0 z-[1]" style={{ background: 'radial-gradient(circle, rgba(10,10,15,0.2) 20%, rgba(10,10,15,0.95) 90%)' }} />
+        </div>
+
+        {/* Three.js particle canvas with shader compile feedback callback overlay */}
+        <div className="absolute inset-0 z-[2] opacity-40 pointer-events-none">
+          <HeroScene onLoaded={() => setIsSceneLoaded(true)} />
+        </div>
 
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto space-y-8">
           {/* Giant display title */}
