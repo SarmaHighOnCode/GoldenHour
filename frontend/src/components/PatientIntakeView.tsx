@@ -286,20 +286,20 @@ export default function PatientIntakeView() {
             transition={{ delay: 1.8, duration: 0.8 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
           >
-            <a
+            <Button
               href="#intake"
-              className="inline-flex items-center justify-center gap-3 h-14 px-10 bg-gradient-to-r from-emergency to-emergency-pressed text-white rounded-2xl font-bold text-sm tracking-wider uppercase transition-all duration-300 hover:scale-105 active:scale-[0.98] shadow-lg shadow-emergency/20 animate-pulse-glow"
+              variant="emergency"
             >
               <Zap className="w-5 h-5 text-white" />
               Get Help Now
-            </a>
-            <Link
+            </Button>
+            <Button
               to="/register"
-              className="inline-flex items-center justify-center gap-2 h-14 px-10 border border-white/15 text-dark-ink hover:bg-white/5 rounded-2xl font-bold text-sm tracking-wider uppercase transition-all duration-300"
+              variant="secondary"
             >
-              <Droplet className="w-5 h-5 text-emergency" />
+              <Droplet className="w-5 h-5 text-goldenhour" />
               Register as Donor
-            </Link>
+            </Button>
           </motion.div>
         </div>
 
@@ -466,7 +466,7 @@ export default function PatientIntakeView() {
                 disabled={!isFormValid || isSubmitting}
                 isLoading={isSubmitting}
                 fullWidth
-                className="mt-2 shadow-lg shadow-emergency/20 font-extrabold uppercase tracking-wider text-sm h-14"
+                className="mt-2"
               >
                 <span className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-white" />
@@ -592,20 +592,22 @@ export default function PatientIntakeView() {
           </TextReveal>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <a
+            <Button
               href="tel:112"
-              className="inline-flex items-center justify-center gap-3 h-16 px-12 bg-gradient-to-r from-emergency to-emergency-pressed text-white rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 hover:scale-105 active:scale-[0.98] shadow-lg shadow-emergency/25"
+              variant="emergency"
+              size="lg"
             >
               <Phone className="w-6 h-6 text-white animate-pulse" />
               Call 112
-            </a>
-            <Link
+            </Button>
+            <Button
               to="/register"
-              className="inline-flex items-center justify-center gap-3 h-16 px-12 border-2 border-goldenhour text-goldenhour hover:bg-goldenhour/10 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300"
+              variant="secondary"
+              size="lg"
             >
               <Droplet className="w-6 h-6 text-goldenhour" />
               Become a Donor
-            </Link>
+            </Button>
           </div>
 
           {/* Heartbeat line */}
