@@ -237,7 +237,7 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 1: HERO — Full screen dark canvas
           ============================================= */}
-      <section className="editorial-section glow-amber glow-crimson relative overflow-hidden">
+      <section className="min-h-[80vh] flex items-center justify-center glow-amber glow-crimson relative overflow-hidden pt-20 pb-12 md:pt-28 md:pb-16">
         {/* Background Slide Carousel with Ken Burns Motion Effect */}
         <div className="absolute inset-0 z-0">
           <AnimatePresence mode="popLayout">
@@ -261,7 +261,7 @@ export default function PatientIntakeView() {
           <HeroScene onLoaded={() => setIsSceneLoaded(true)} />
         </div>
 
-        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto space-y-8">
+        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto space-y-6">
           {/* Giant display title */}
           <h1
             ref={heroTitleRef}
@@ -304,7 +304,7 @@ export default function PatientIntakeView() {
         </div>
 
         {/* Scroll hint */}
-        <div ref={scrollHintRef} className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-0">
+        <div ref={scrollHintRef} className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-0">
           <span className="text-[10px] text-dark-ink-muted uppercase tracking-[0.3em] font-semibold">Scroll</span>
           <div className="w-5 h-8 border border-white/20 rounded-full flex items-start justify-center p-1.5">
             <div className="w-1 h-2 bg-goldenhour rounded-full animate-scroll-hint" />
@@ -315,8 +315,8 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 2: PROBLEM STATEMENT — Text reveals
           ============================================= */}
-      <section className="editorial-section px-6 glow-crimson">
-        <div className="max-w-4xl mx-auto space-y-16">
+      <section className="py-12 md:py-16 px-6 glow-crimson relative overflow-hidden flex items-center justify-center">
+        <div className="max-w-4xl mx-auto space-y-8">
           <TextReveal
             as="h2"
             className="text-display-lg text-dark-ink leading-tight"
@@ -342,7 +342,7 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 3: INTAKE CONSOLE — Pinned booking form
           ============================================= */}
-      <section id="intake" className="py-32 px-6 relative glow-amber">
+      <section id="intake" className="py-12 md:py-16 px-6 relative glow-amber">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
           {/* Left: Descriptive text */}
@@ -482,8 +482,8 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 4: HOW IT WORKS — Horizontal scroll
           ============================================= */}
-      <section ref={horizontalRef} id="how-it-works" className="relative overflow-hidden" style={{ height: '100vh' }}>
-        <div className="absolute top-0 left-0 w-full py-12 px-6 z-10">
+      <section ref={horizontalRef} id="how-it-works" className="relative overflow-hidden" style={{ height: '75vh' }}>
+        <div className="absolute top-0 left-0 w-full py-6 px-6 z-10">
           <div className="max-w-6xl mx-auto">
             <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-2">How It Works</p>
             <h2 className="text-display-lg text-dark-ink">Three steps. <span className="text-gradient">Zero delay.</span></h2>
@@ -541,9 +541,9 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 5: STATS — Animated counters
           ============================================= */}
-      <section className="editorial-section px-6">
+      <section className="py-12 md:py-16 px-6 relative overflow-hidden flex items-center justify-center">
         <div className="max-w-5xl mx-auto w-full">
-          <div className="text-center space-y-4 mb-20">
+          <div className="text-center space-y-3 mb-10">
             <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em]">By The Numbers</p>
             <h2 className="text-display-lg text-dark-ink">Built for speed. <span className="text-gradient">Designed for trust.</span></h2>
           </div>
@@ -579,8 +579,8 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 6: CTA FOOTER
           ============================================= */}
-      <section className="py-32 px-6 relative">
-        <div className="max-w-3xl mx-auto text-center space-y-10">
+      <section className="py-12 md:py-16 px-6 relative">
+        <div className="max-w-3xl mx-auto text-center space-y-8">
           <TextReveal
             as="h2"
             className="text-display-lg text-dark-ink"
@@ -611,7 +611,7 @@ export default function PatientIntakeView() {
           </div>
 
           {/* Heartbeat line */}
-          <div className="pt-16">
+          <div className="pt-10">
             <svg viewBox="0 0 400 40" className="w-full max-w-md mx-auto opacity-20">
               <polyline
                 points="0,20 60,20 80,5 100,35 120,10 140,30 160,20 400,20"
