@@ -15,7 +15,7 @@
   --color-dark-bg: #0A0A0F;
   --color-dark-surface: #14141F;
   --color-dark-ink: #F0EDE8;
-  --color-dark-ink-muted: #8A8580;
+  --color-dark-ink-muted: #B0ACA7;
   
   --color-emergency: #DC2626;
   --color-emergency-pressed: #B91C1C;
@@ -44,7 +44,7 @@
   --color-bg: #0A0A0F;
   --color-surface: #14141F;
   --color-ink: #F0EDE8;
-  --color-ink-muted: #8A8580;
+  --color-ink-muted: #B0ACA7;
 }
 
 /* ========================
