@@ -21,7 +21,6 @@ from typing import Dict, List, Optional
 
 from blood import ALL_GROUPS
 from config import settings
-from geo import haversine_km
 from services.geocoder import geocode_area
 
 logger = logging.getLogger("goldenhour.sms")

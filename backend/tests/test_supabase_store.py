@@ -78,7 +78,6 @@ def test_full_flow_emergency_confirm_status():
 
 def test_register_donor_persists():
     store = _store()
-    before = len(store.tables["blood_donors"]) if hasattr(store, "tables") else None
     donor_id = store.add_donor("Test User", "+919800000000", "B+", 26.9, 75.8, None)
     assert donor_id.startswith("d")
     # Confirm it is queryable back.
