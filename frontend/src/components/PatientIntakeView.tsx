@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
 import { gsap, ScrollTrigger } from '../lib/gsap-setup';
 import { HeroScene } from './three/HeroScene';
-import { TextReveal } from './motion/TextReveal';
-import { CardReveal } from './motion/CardReveal';
 import { CountUp } from './motion/CountUp';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -38,6 +36,35 @@ export default function PatientIntakeView() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSceneLoaded, setIsSceneLoaded] = useState<boolean>(false);
 
+  // Dispatch transition states
+  const [dispatchState, setDispatchState] = useState<'idle' | 'dispatching'>('idle');
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [animationFinished, setAnimationFinished] = useState<boolean>(false);
+  const [prefersReduced, setPrefersReduced] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Ref to hold resolved request_id so it can be navigated to after animation finishes
+  const resolvedRequestIdRef = useRef<string | null>(null);
+
+  // Check prefers-reduced-motion
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReduced(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefersReduced(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
   // Background slide carousel
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -54,6 +81,15 @@ export default function PatientIntakeView() {
   const scrollHintRef = useRef<HTMLDivElement>(null);
   const horizontalRef = useRef<HTMLDivElement>(null);
   const horizontalInnerRef = useRef<HTMLDivElement>(null);
+
+  // Parallax scroll tracking
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+
+  const y = useTransform(scrollYProgress, [0, 1], [0, (prefersReduced || isMobile) ? 0 : 120]);
+  const darkenOpacity = useTransform(scrollYProgress, [0, 1], [0, (prefersReduced || isMobile) ? 0 : 0.6]);
 
   // Trigger Geolocation API
   const handleAcquireLocation = () => {
@@ -89,23 +125,86 @@ export default function PatientIntakeView() {
     if (!isFormValid || !coords) return;
     setIsSubmitting(true);
     setSubmitError(null);
-    try {
-      const data = await api.triggerEmergency(coords.lat, coords.lng, emergencyType, bloodGroup);
-      if (data && data.request_id) {
-        sessionStorage.setItem(`emergency_${data.request_id}`, JSON.stringify({
-          bloodGroup,
-          emergencyType,
-          rareGroup: data.rare_group ?? bloodGroup.endsWith('-')
-        }));
-        navigate(`/results/${data.request_id}`);
-      } else {
-        throw new Error('Invalid request ID returned from server.');
+    resolvedRequestIdRef.current = null;
+    setAnimationFinished(false);
+    setCurrentStep(0);
+    setDispatchState('dispatching');
+
+    // Timer list to clear on cleanup/error
+    const activeTimers: NodeJS.Timeout[] = [];
+
+    // Trigger API call in background
+    const apiCallPromise = api.triggerEmergency(coords.lat, coords.lng, emergencyType, bloodGroup)
+      .then((data) => {
+        if (data && data.request_id) {
+          sessionStorage.setItem(`emergency_${data.request_id}`, JSON.stringify({
+            bloodGroup,
+            emergencyType,
+            rareGroup: data.rare_group ?? bloodGroup.endsWith('-')
+          }));
+          resolvedRequestIdRef.current = data.request_id;
+          return data.request_id;
+        } else {
+          throw new Error('Invalid request ID returned from server.');
+        }
+      });
+
+    if (prefersReduced) {
+      // Reduced motion: navigate immediately when API call finishes
+      try {
+        const requestId = await apiCallPromise;
+        setDispatchState('idle');
+        setIsSubmitting(false);
+        navigate(`/results/${requestId}`);
+      } catch (err: any) {
+        setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
+        setDispatchState('idle');
+        setIsSubmitting(false);
       }
-    } catch (err: any) {
-      setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
+
+    // Standard motion: orchestrate step-by-step checkmarks sequence (2.5s total)
+    // Step 1 checkmark: 800ms
+    activeTimers.push(setTimeout(() => {
+      setCurrentStep(1);
+    }, 800));
+
+    // Step 2 checkmark: 1600ms
+    activeTimers.push(setTimeout(() => {
+      setCurrentStep(2);
+    }, 1600));
+
+    // Step 3 checkmark: 2400ms
+    activeTimers.push(setTimeout(() => {
+      setCurrentStep(3);
+    }, 2400));
+
+    // Sequence completion check: 2500ms
+    activeTimers.push(setTimeout(async () => {
+      setAnimationFinished(true);
+      
+      // Wait for API call to complete if it hasn't already
+      try {
+        const requestId = await apiCallPromise;
+        setDispatchState('idle');
+        setIsSubmitting(false);
+        navigate(`/results/${requestId}`);
+      } catch (err: any) {
+        setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
+        setDispatchState('idle');
+        setIsSubmitting(false);
+      }
+    }, 2500));
+
+    // Watch API call concurrently to handle early failures
+    apiCallPromise.catch((err: any) => {
+      // Clear all active timers immediately on error to abort sequence
+      activeTimers.forEach(clearTimeout);
+      setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
+      setDispatchState('idle');
+      setIsSubmitting(false);
+    });
   };
 
   const typeOptions = [
@@ -122,6 +221,12 @@ export default function PatientIntakeView() {
     { value: 'A+', label: 'A+' }, { value: 'A-', label: 'A-' },
     { value: 'B+', label: 'B+' }, { value: 'B-', label: 'B-' },
     { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' }
+  ];
+
+  const stepDetails = [
+    { label: 'Locking GPS', showAtStep: 0 },
+    { label: 'Matching nearest hospital', showAtStep: 1 },
+    { label: 'Broadcasting to donors in range', showAtStep: 2 },
   ];
 
   // === GSAP ANIMATIONS ===
@@ -199,6 +304,27 @@ export default function PatientIntakeView() {
     return () => ctx.revert();
   }, []);
 
+  const containerVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.15,
+      }
+    }
+  };
+
+  const cardVariants = {
+    hidden: prefersReduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: 'easeOut'
+      }
+    }
+  };
+
   return (
     <div className="w-full">
       
@@ -240,9 +366,9 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 1: HERO — Full screen dark canvas
           ============================================= */}
-      <section className="min-h-[80vh] flex items-center justify-center glow-amber glow-crimson relative overflow-hidden pt-20 pb-12 md:pt-28 md:pb-16">
+      <section ref={heroRef} className="min-h-[80vh] flex items-center justify-center glow-amber glow-crimson relative overflow-hidden pt-20 pb-12 md:pt-28 md:pb-16">
         {/* Background Slide Carousel with Ken Burns Motion Effect */}
-        <div className="absolute inset-0 z-0">
+        <motion.div style={{ y }} className="absolute inset-0 z-0">
           <AnimatePresence mode="popLayout">
             <motion.div
               key={currentSlide}
@@ -269,7 +395,10 @@ export default function PatientIntakeView() {
 
           {/* Layer 5: Crimson ambient glow — signature GoldenHour accent */}
           <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 80%, rgba(220,38,38,0.18) 0%, transparent 70%)' }} />
-        </div>
+
+          {/* Smooth scroll-to-black fade overlay */}
+          <motion.div style={{ opacity: darkenOpacity }} className="absolute inset-0 z-[4] bg-[#0A0A0F] pointer-events-none" />
+        </motion.div>
 
         {/* Three.js particle canvas with shader compile feedback callback overlay */}
         <div className="absolute inset-0 z-[2] opacity-40 pointer-events-none">
@@ -334,25 +463,25 @@ export default function PatientIntakeView() {
           ============================================= */}
       <section className="py-12 md:py-16 px-6 glow-crimson relative overflow-hidden flex items-center justify-center">
         <div className="max-w-4xl mx-auto space-y-8">
-          <TextReveal
-            as="h2"
+          <motion.h2
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
             className="text-display-lg text-dark-ink leading-tight"
-            stagger={0.06}
-            start="top 80%"
-            end="top 30%"
           >
             In an emergency, every minute between injury and hospital care determines survival. The golden hour is not a metaphor — it is a countdown.
-          </TextReveal>
+          </motion.h2>
 
-          <TextReveal
-            as="p"
+          <motion.p
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: prefersReduced ? 0 : 0.15 }}
             className="text-display-md text-dark-ink-muted leading-relaxed max-w-3xl"
-            stagger={0.03}
-            start="top 85%"
-            end="top 35%"
           >
             GoldenHour eliminates the chaos. One tap locks your GPS, dispatches the nearest hospital with a matching department, and broadcasts to every registered blood donor within range. Simultaneously.
-          </TextReveal>
+          </motion.p>
         </div>
       </section>
 
@@ -363,7 +492,13 @@ export default function PatientIntakeView() {
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
           {/* Left: Descriptive text */}
-          <CardReveal direction="left" className="space-y-6">
+          <motion.div
+            initial={prefersReduced ? {} : { opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="space-y-6"
+          >
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-emergency/10 border border-emergency/20 rounded-full">
               <span className="w-2 h-2 rounded-full bg-emergency animate-pulse" />
               <span className="text-[10px] font-black text-emergency uppercase tracking-widest">Live Dispatch</span>
@@ -388,10 +523,15 @@ export default function PatientIntakeView() {
                 <span className="text-xs font-semibold">Donor Alert</span>
               </div>
             </div>
-          </CardReveal>
+          </motion.div>
 
           {/* Right: Intake Form Card */}
-          <CardReveal direction="right" delay={0.15}>
+          <motion.div
+            initial={prefersReduced ? {} : { opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: prefersReduced ? 0 : 0.15 }}
+          >
             <div className="glass-card p-8 space-y-5 relative animate-pulse-glow">
               {/* Top accent */}
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency rounded-t-3xl" />
@@ -491,7 +631,7 @@ export default function PatientIntakeView() {
                 </span>
               </Button>
             </div>
-          </CardReveal>
+          </motion.div>
 
         </div>
       </section>
@@ -501,15 +641,29 @@ export default function PatientIntakeView() {
           ============================================= */}
       <section ref={horizontalRef} id="how-it-works" className="relative overflow-hidden" style={{ height: '75vh' }}>
         <div className="absolute top-0 left-0 w-full py-6 px-6 z-10">
-          <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="max-w-6xl mx-auto"
+          >
             <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-2">How It Works</p>
             <h2 className="text-display-lg text-dark-ink">Three steps. <span className="text-white/90">Zero delay.</span></h2>
-          </div>
+          </motion.div>
         </div>
 
-        <div ref={horizontalInnerRef} className="flex items-center gap-8 px-6 absolute top-1/2 -translate-y-1/2" style={{ width: 'max-content', paddingLeft: '10vw', paddingRight: '10vw' }}>
+        <motion.div
+          ref={horizontalInnerRef}
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-10% 0px" }}
+          className="flex items-center gap-8 px-6 absolute top-1/2 -translate-y-1/2"
+          style={{ width: 'max-content', paddingLeft: '10vw', paddingRight: '10vw' }}
+        >
           {/* Step 1 */}
-          <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
+          <motion.div variants={cardVariants} className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
             <div>
               <div className="mb-6">
                 <MapPin className="w-6 h-6 text-goldenhour" />
@@ -521,10 +675,10 @@ export default function PatientIntakeView() {
               </p>
             </div>
             <div className="h-1 bg-gradient-to-r from-goldenhour to-transparent rounded-full mt-4" />
-          </div>
+          </motion.div>
 
           {/* Step 2 */}
-          <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
+          <motion.div variants={cardVariants} className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
             <div>
               <div className="mb-6">
                 <Building2 className="w-6 h-6 text-emergency" />
@@ -536,10 +690,10 @@ export default function PatientIntakeView() {
               </p>
             </div>
             <div className="h-1 bg-gradient-to-r from-emergency to-transparent rounded-full mt-4" />
-          </div>
+          </motion.div>
 
           {/* Step 3 */}
-          <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
+          <motion.div variants={cardVariants} className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
             <div>
               <div className="mb-6">
                 <Droplet className="w-6 h-6 text-success" />
@@ -551,8 +705,8 @@ export default function PatientIntakeView() {
               </p>
             </div>
             <div className="h-1 bg-gradient-to-r from-success to-transparent rounded-full mt-4" />
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* =============================================
@@ -560,36 +714,48 @@ export default function PatientIntakeView() {
           ============================================= */}
       <section className="py-12 md:py-16 px-6 relative overflow-hidden flex items-center justify-center">
         <div className="max-w-5xl mx-auto w-full">
-          <div className="text-center space-y-3 mb-10">
+          <motion.div
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="text-center space-y-3 mb-10"
+          >
             <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em]">By The Numbers</p>
             <h2 className="text-display-lg text-dark-ink">Built for speed. <span className="text-white/90">Designed for trust.</span></h2>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <CardReveal className="glass-card p-8 text-center space-y-3" delay={0}>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-10% 0px" }}
+            className="grid grid-cols-1 sm:grid-cols-3 gap-8"
+          >
+            <motion.div variants={cardVariants} className="glass-card p-8 text-center space-y-3">
               <div className="text-5xl font-display font-bold text-goldenhour">
                 <CountUp end={6} prefix="< " suffix=" min" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Average Response</p>
               <p className="text-xs text-dark-ink-muted">From dispatch to hospital confirmation</p>
-            </CardReveal>
+            </motion.div>
 
-            <CardReveal className="glass-card p-8 text-center space-y-3" delay={0.1}>
+            <motion.div variants={cardVariants} className="glass-card p-8 text-center space-y-3">
               <div className="text-5xl font-display font-bold text-goldenhour">
-                24/7
+                <CountUp end={24} suffix="/7" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Always On</p>
               <p className="text-xs text-dark-ink-muted">Real-time websocket sync, polling fallback</p>
-            </CardReveal>
+            </motion.div>
 
-            <CardReveal className="glass-card p-8 text-center space-y-3" delay={0.2}>
+            <motion.div variants={cardVariants} className="glass-card p-8 text-center space-y-3">
               <div className="text-5xl font-display font-bold text-goldenhour">
                 <CountUp end={100} suffix="%" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Open Source</p>
               <p className="text-xs text-dark-ink-muted">Transparent, auditable, community-driven</p>
-            </CardReveal>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
@@ -598,17 +764,23 @@ export default function PatientIntakeView() {
           ============================================= */}
       <section className="py-12 md:py-16 px-6 relative">
         <div className="max-w-3xl mx-auto text-center space-y-8">
-          <TextReveal
-            as="h2"
+          <motion.h2
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
             className="text-display-lg text-gradient"
-            stagger={0.04}
-            start="top 80%"
-            end="top 50%"
           >
             When someone you love needs help, every second is a lifetime.
-          </TextReveal>
+          </motion.h2>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <motion.div
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: prefersReduced ? 0 : 0.15 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
+          >
             <Button
               href="tel:112"
               variant="emergency"
@@ -625,7 +797,7 @@ export default function PatientIntakeView() {
               <Droplet className="w-6 h-6 text-goldenhour" />
               Become a Donor
             </Button>
-          </div>
+          </motion.div>
 
           {/* Heartbeat line */}
           <div className="pt-10">
@@ -657,6 +829,128 @@ export default function PatientIntakeView() {
           </p>
         </div>
       </section>
+
+      {/* Full-screen Dispatching Overlay */}
+      <AnimatePresence>
+        {dispatchState === 'dispatching' && (
+          prefersReduced ? (
+            <div className="fixed inset-0 bg-[#0A0A0F]/98 flex items-center justify-center z-[99999]">
+              <div className="text-center space-y-4">
+                <h2 className="text-xl font-bold tracking-wider text-white">Dispatching...</h2>
+                <p className="text-sm text-dark-ink-muted">Connecting with emergency response teams.</p>
+              </div>
+            </div>
+          ) : (
+            <motion.div
+              key="dispatch-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+              className="fixed inset-0 bg-[#0A0A0F]/98 backdrop-blur-md flex flex-col items-center justify-center z-[99999] overflow-hidden"
+              style={{ pointerEvents: 'auto' }}
+            >
+              {/* Conic sweep + Expanding rings */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                <div 
+                  className="w-[550px] h-[550px] rounded-full animate-radar-rotate opacity-20"
+                  style={{
+                    background: 'conic-gradient(from 0deg, rgba(220, 38, 38, 0) 40%, rgba(220, 38, 38, 0.45) 100%)',
+                  }}
+                />
+                <div className="absolute w-[500px] h-[500px] rounded-full border border-red-600/20 animate-radar-ring" style={{ animationDelay: '0s' }} />
+                <div className="absolute w-[500px] h-[500px] rounded-full border border-red-600/20 animate-radar-ring" style={{ animationDelay: '1s' }} />
+                <div className="absolute w-[500px] h-[500px] rounded-full border border-red-600/20 animate-radar-ring" style={{ animationDelay: '2s' }} />
+                
+                <div className="absolute w-[150px] h-[150px] rounded-full border border-red-600/10" />
+                <div className="absolute w-[300px] h-[300px] rounded-full border border-red-600/10" />
+                <div className="absolute w-[450px] h-[450px] rounded-full border border-red-600/10" />
+                
+                <div className="absolute w-[600px] h-[1px] bg-red-600/10" />
+                <div className="absolute h-[600px] w-[1px] bg-red-600/10" />
+              </div>
+
+              {/* Content container */}
+              <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6 text-center space-y-10">
+                {/* Floating pulse beacon representing patient */}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute w-14 h-14 rounded-full bg-emergency/30 animate-ping" />
+                  <div className="relative w-10 h-10 rounded-full bg-emergency flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.7)]">
+                    <Zap className="w-5 h-5 text-white fill-white animate-pulse" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black tracking-widest text-white uppercase">Broadcasting SOS</h3>
+                  <p className="text-xs text-dark-ink-muted">Do not close this page. Securing medical response.</p>
+                </div>
+
+                {/* Dispatch steps checklist */}
+                <div className="w-full space-y-4 text-left">
+                  {stepDetails.map((step, idx) => {
+                    const isVisible = currentStep >= step.showAtStep;
+                    const isCompleted = currentStep > idx;
+                    const isActive = currentStep === idx;
+
+                    return (
+                      <div key={step.label} className="min-h-[64px]">
+                        <AnimatePresence>
+                          {isVisible && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 15 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                              className="flex items-center gap-4 bg-white/[0.02] border border-white/[0.05] backdrop-blur-sm p-4 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
+                            >
+                              {/* Status Indicator */}
+                              <div className="flex-shrink-0">
+                                {isCompleted ? (
+                                  <motion.div
+                                    initial={{ scale: 0.5, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                    className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center"
+                                  >
+                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </motion.div>
+                                ) : isActive ? (
+                                  <div className="relative w-6 h-6 flex items-center justify-center">
+                                    <div className="absolute w-5 h-5 rounded-full bg-emergency/35 animate-ping" />
+                                    <div className="w-3 h-3 rounded-full bg-emergency shadow-[0_0_8px_rgba(220,38,38,0.8)]" />
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center">
+                                    <div className="w-2 h-2 rounded-full bg-white/20" />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Step label */}
+                              <div className="flex-1">
+                                <span className={`text-sm font-semibold tracking-wide ${isCompleted ? 'text-white/60 line-through decoration-emerald-500/40' : isActive ? 'text-white' : 'text-white/30'}`}>
+                                  {step.label}
+                                </span>
+                                {isActive && (
+                                  <span className="block text-[10px] text-goldenhour font-bold uppercase tracking-widest mt-0.5 animate-pulse">
+                                    In Progress...
+                                  </span>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )
+        )}
+      </AnimatePresence>
 
     </div>
   );

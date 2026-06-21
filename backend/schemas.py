@@ -32,6 +32,8 @@ class EmergencyRequest(BaseModel):
 class HospitalCard(BaseModel):
     hospital_id: str
     name: str
+    lat: float
+    lng: float
     eta_minutes: int
     department_match: bool
     distance_km: float
@@ -52,12 +54,16 @@ class EmergencyResponse(BaseModel):
 class HospitalStatusCard(BaseModel):
     hospital_id: str
     name: str
+    lat: float
+    lng: float
     eta_minutes: int
     status: HospitalStatus
 
 
 class EmergencyStatusResponse(BaseModel):
     request_id: str
+    lat: float
+    lng: float
     hospitals: List[HospitalStatusCard]
     donors_alerted: int
     donors_responded: int

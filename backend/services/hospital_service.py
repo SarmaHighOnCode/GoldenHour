@@ -358,6 +358,8 @@ async def rank_hospitals(
             {
                 "hospital_id": h["id"],
                 "name": h["name"],
+                "lat": h["lat"],
+                "lng": h["lng"],
                 "eta_minutes": eta,
                 "department_match": dept_match,
                 "distance_km": h["distance_km"],

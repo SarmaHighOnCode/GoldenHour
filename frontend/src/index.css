@@ -51,6 +51,25 @@
    KEYFRAMES
    ======================== */
 
+@keyframes radar-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes radar-pulse-ring {
+  0% { transform: scale(0.4); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.animate-radar-rotate {
+  animation: radar-rotate 4s linear infinite;
+}
+
+.animate-radar-ring {
+  animation: radar-pulse-ring 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+
 @keyframes flash-red {
   0%, 100% { opacity: 0.3; fill: #DC2626; filter: drop-shadow(0 0 2px rgba(220,38,38,0.2)); }
   50% { opacity: 1; fill: #EF4444; filter: drop-shadow(0 0 8px rgba(220,38,38,0.8)); }
@@ -282,3 +301,115 @@ html.lenis, html.lenis body {
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: #3A3A45;
 }
+
+/* ===========================================================================
+   LIVE RESULTS MAP RADAR PING ANIMATION
+   =========================================================================== */
+@keyframes ping-expand {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+}
+
+.radar-ping-ring {
+  animation: ping-expand 2.2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+.radar-ping-paused {
+  animation-play-state: paused !important;
+  display: none !important;
+}
+
+.radar-ping-static-circle {
+  border: 1.5px solid rgba(220, 38, 38, 0.4);
+  background-color: rgba(220, 38, 38, 0.06);
+  border-radius: 9999px;
+  width: 140px;
+  height: 140px;
+}
+
+/* ===========================================================================
+   LEAFLET MAP OVERRIDES
+   =========================================================================== */
+.leaflet-popup-content-wrapper {
+  background: rgba(10, 10, 15, 0.96) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #FFFFFF !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6) !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(10, 10, 15, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.leaflet-container {
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* ===========================================================================
+   HOSPITAL CONFIRMED BEAT ANIMATIONS
+   =========================================================================== */
+
+@keyframes card-emerald-sweep {
+  0% {
+    background-color: #ffffff;
+    border-color: rgba(226, 232, 240, 0.6);
+    box-shadow: 0 1px 3px rgba(26, 23, 20, 0.02), 0 8px 24px rgba(26, 23, 20, 0.04);
+  }
+  30% {
+    background-color: #10b981;
+    border-color: #10b981;
+    box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+    color: #ffffff;
+  }
+  100% {
+    background-color: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 4px 20px rgba(5, 150, 105, 0.08);
+  }
+}
+
+.confirmed-card-sweep {
+  animation: card-emerald-sweep 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes route-pulse {
+  0% {
+    stroke-width: 5;
+    stroke-opacity: 0.9;
+    filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0));
+  }
+  50% {
+    stroke-width: 10;
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.95));
+  }
+  100% {
+    stroke-width: 5;
+    stroke-opacity: 0.9;
+    filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0));
+  }
+}
+
+.route-line-confirmed {
+  stroke-dasharray: none !important;
+  animation: route-pulse 1.5s cubic-bezier(0.25, 1, 0.5, 1) 1;
+}
+
+.route-line-confirmed-static {
+  stroke-dasharray: none !important;
+  stroke-width: 5;
+  stroke-opacity: 0.9;
+}
+
