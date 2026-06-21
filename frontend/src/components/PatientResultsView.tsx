@@ -66,6 +66,16 @@ export default function PatientResultsView() {
     }
   }, [id]);
 
+  // Normalize ETA: API contract says eta_minutes, but some rows (esp. from
+  // older Supabase inserts or the Google Maps path before the /60 guard was
+  // added) may arrive as raw seconds. If the value is >120 we treat it as
+  // seconds and convert. Always clamp to a realistic 1–120 min range.
+  const normalizeEta = (raw: number): number => {
+    if (raw == null || isNaN(raw)) return 5;
+    const asMinutes = raw > 120 ? Math.round(raw / 60) : Math.round(raw);
+    return Math.max(1, Math.min(120, asMinutes));
+  };
+
   // Process data returned from status payload
   const updateStateFromPayload = (data: any) => {
     setDonorsResponded(data.donors_responded ?? 0);
@@ -77,7 +87,7 @@ export default function PatientResultsView() {
           return {
             hospital_id: newH.hospital_id,
             name: newH.name,
-            eta_minutes: newH.eta_minutes,
+            eta_minutes: normalizeEta(newH.eta_minutes),
             status: newH.status,
             department_match: existing ? existing.department_match : (newH.department_match ?? false),
             phone: existing ? existing.phone : (newH.phone ?? "+910000000000")
@@ -209,7 +219,7 @@ export default function PatientResultsView() {
                   return {
                     hospital_id: newH.hospital_id,
                     name: newH.name,
-                    eta_minutes: newH.eta_minutes,
+                    eta_minutes: normalizeEta(newH.eta_minutes),
                     status: newH.status,
                     department_match: existing ? existing.department_match : (newH.department_match ?? false),
                     phone: existing ? existing.phone : (newH.phone ?? "+910000000000")
