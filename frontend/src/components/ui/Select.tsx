@@ -40,7 +40,7 @@ export const Select: React.FC<SelectProps> = ({
     <div className="space-y-1.5 w-full relative" ref={dropdownRef}>
       <label 
         htmlFor={id} 
-        className="block text-xs font-bold text-dark-ink-muted uppercase tracking-wider select-none"
+        className="block text-[10px] font-extrabold text-white/50 uppercase tracking-[0.15em] select-none"
       >
         {label}
       </label>

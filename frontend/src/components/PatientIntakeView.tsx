@@ -352,106 +352,139 @@ export default function PatientIntakeView() {
 
           {/* Right: Intake Form Card */}
           <CardReveal direction="right" delay={0.15}>
-            <div className="glass-card p-8 space-y-5 relative animate-pulse-glow">
-              {/* Top accent */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency rounded-t-3xl" />
+            <div className="relative rounded-2xl overflow-hidden" style={{
+              background: 'linear-gradient(145deg, rgba(30, 30, 45, 0.95) 0%, rgba(18, 18, 28, 0.98) 100%)',
+              boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(220,38,38,0.08), inset 0 1px 0 rgba(255,255,255,0.08)',
+            }}>
+              {/* Top accent bar */}
+              <div className="h-[3px] w-full bg-gradient-to-r from-transparent via-emergency to-transparent" />
+              
+              {/* Inner content */}
+              <div className="px-8 py-9 space-y-6">
+                {/* Header */}
+                <div className="text-center space-y-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emergency/10 border border-emergency/15 mx-auto">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emergency animate-pulse" />
+                    <span className="text-[9px] font-extrabold text-emergency uppercase tracking-[0.2em]">Live Dispatch</span>
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tight text-white">Emergency Dispatch</h3>
+                  <p className="text-xs text-white/40">Secure your location and select emergency details.</p>
+                </div>
 
-              {/* Header */}
-              <div className="text-center space-y-2 pt-2">
-                <h3 className="text-xl font-black tracking-tight text-dark-ink">Emergency Dispatch</h3>
-                <p className="text-xs text-dark-ink-muted">Secure your location and select emergency details.</p>
-              </div>
+                {/* Divider */}
+                <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
-              {/* Location Button */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-dark-ink-muted uppercase tracking-wider">Patient Location</label>
-                <Button
+                {/* Location Button */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-extrabold text-white/50 uppercase tracking-[0.15em]">Patient Location</label>
+                  <button
+                    type="button"
+                    onClick={handleAcquireLocation}
+                    disabled={locating}
+                    className={`w-full h-14 flex items-center justify-center gap-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
+                      coords 
+                        ? 'bg-success/15 border border-success/30 text-success' 
+                        : 'bg-white/[0.04] border border-white/[0.08] text-white/80 hover:bg-white/[0.08] hover:border-white/[0.15]'
+                    }`}
+                  >
+                    {locating ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-5 w-5 text-current" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Acquiring...
+                      </span>
+                    ) : coords ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        Location Locked
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-white/40" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Pin Current Location
+                      </span>
+                    )}
+                  </button>
+
+                  {!coords && !locating && (
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }}
+                        className="text-[11px] text-white/30 hover:text-goldenhour transition-colors font-medium underline cursor-pointer"
+                      >
+                        Or use demo location (Jaipur)
+                      </button>
+                    </div>
+                  )}
+
+                  <AnimatePresence mode="wait">
+                    {coords && (
+                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        className="bg-success/5 border border-success/15 rounded-xl p-3 text-center"
+                      >
+                        <p className="text-xs font-semibold text-success/80">Coordinates Secured</p>
+                        <p className="text-[11px] font-mono text-white/30 mt-0.5">Lat: {coords.lat} · Lng: {coords.lng}</p>
+                        <button type="button" onClick={() => setCoords(null)} className="text-[10px] text-emergency/70 hover:text-emergency underline font-bold mt-1.5 cursor-pointer">Clear</button>
+                      </motion.div>
+                    )}
+                    {locationError && (
+                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center space-y-2" role="alert"
+                      >
+                        <p className="text-xs font-bold text-emergency">{locationError}</p>
+                        <div className="flex items-center justify-center gap-3">
+                          <button type="button" onClick={handleAcquireLocation} className="text-xs text-emergency font-extrabold underline cursor-pointer">Retry</button>
+                          <span className="text-xs text-white/15">|</span>
+                          <button type="button" onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }} className="text-xs text-success font-extrabold underline cursor-pointer">Demo Location</button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Selects */}
+                <Select label="Emergency type" value={emergencyType} onChange={(e) => setEmergencyType(e.target.value)} options={typeOptions} />
+                <Select label="Blood group needed" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} options={bloodOptions} />
+
+                {submitError && (
+                  <div className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center text-xs font-bold text-emergency" role="alert">{submitError}</div>
+                )}
+
+                {/* Dispatch Button */}
+                <button
                   type="button"
-                  onClick={handleAcquireLocation}
-                  isLoading={locating}
-                  variant={coords ? 'success' : 'ghost'}
-                  fullWidth
-                  aria-label={coords ? "Location secured" : "Pin my current location"}
-                  className="transition-all duration-300 h-14 rounded-xl"
+                  onClick={dispatchEmergency}
+                  disabled={!isFormValid || isSubmitting}
+                  className="w-full h-14 flex items-center justify-center gap-2.5 rounded-xl font-extrabold uppercase tracking-wider text-sm text-white cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+                  style={{
+                    background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                    boxShadow: isFormValid ? '0 8px 32px rgba(220,38,38,0.35), inset 0 1px 0 rgba(255,255,255,0.12)' : 'none',
+                  }}
                 >
-                  {coords ? (
+                  {isSubmitting ? (
                     <span className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      Location Locked
+                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Processing...
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      Pin Current Location
+                      GET HELP NOW
                     </span>
                   )}
-                </Button>
-
-                {!coords && !locating && (
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }}
-                      className="text-[11px] text-dark-ink-muted hover:text-goldenhour transition-colors font-medium underline cursor-pointer"
-                    >
-                      Or use demo location (Jaipur)
-                    </button>
-                  </div>
-                )}
-
-                <AnimatePresence mode="wait">
-                  {coords && (
-                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="bg-white/5 border border-white/10 rounded-xl p-3 text-center"
-                    >
-                      <p className="text-xs font-semibold text-dark-ink-muted">Coordinates Secured</p>
-                      <p className="text-[11px] font-mono text-dark-ink-muted/60 mt-0.5">Lat: {coords.lat} · Lng: {coords.lng}</p>
-                      <button type="button" onClick={() => setCoords(null)} className="text-[10px] text-emergency hover:text-emergency-pressed underline font-bold mt-1.5 cursor-pointer">Clear</button>
-                    </motion.div>
-                  )}
-                  {locationError && (
-                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center space-y-2" role="alert"
-                    >
-                      <p className="text-xs font-bold text-emergency">{locationError}</p>
-                      <div className="flex items-center justify-center gap-3">
-                        <button type="button" onClick={handleAcquireLocation} className="text-xs text-emergency font-extrabold underline cursor-pointer">Retry</button>
-                        <span className="text-xs text-dark-ink-muted/30">|</span>
-                        <button type="button" onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }} className="text-xs text-success font-extrabold underline cursor-pointer">Demo Location</button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                </button>
               </div>
-
-              {/* Selects */}
-              <Select label="Emergency type" value={emergencyType} onChange={(e) => setEmergencyType(e.target.value)} options={typeOptions} />
-              <Select label="Blood group needed" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} options={bloodOptions} />
-
-              {submitError && (
-                <div className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center text-xs font-bold text-emergency" role="alert">{submitError}</div>
-              )}
-
-              {/* Dispatch Button */}
-              <Button
-                type="button"
-                onClick={dispatchEmergency}
-                variant="emergency"
-                disabled={!isFormValid || isSubmitting}
-                isLoading={isSubmitting}
-                fullWidth
-                className="mt-2 shadow-lg shadow-emergency/20 font-extrabold uppercase tracking-wider text-sm h-14"
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  GET HELP NOW
-                </span>
-              </Button>
             </div>
           </CardReveal>
 
