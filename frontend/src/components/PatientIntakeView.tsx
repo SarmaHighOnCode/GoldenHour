@@ -247,7 +247,7 @@ export default function PatientIntakeView() {
             <motion.div
               key={currentSlide}
               initial={{ scale: 1.12, opacity: 0 }}
-              animate={{ scale: 1, opacity: 0.55 }}
+              animate={{ scale: 1, opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 2.4, ease: "easeInOut" }}
               className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -255,20 +255,20 @@ export default function PatientIntakeView() {
             />
           </AnimatePresence>
 
-          {/* Layer 1: Dark base tint — makes image clearly textural, not muddy */}
-          <div className="absolute inset-0 z-[1] bg-[#0A0A0F]/75" />
+          {/* Layer 1: Light overall darken — image stays dramatic but readable */}
+          <div className="absolute inset-0 z-[1] bg-[#0A0A0F]/40" />
 
-          {/* Layer 2: Top vignette — pushes nav area to full dark */}
-          <div className="absolute inset-0 z-[2] bg-gradient-to-b from-[#0A0A0F]/90 via-transparent to-transparent" />
+          {/* Layer 2: Top vignette — keeps nav area legible */}
+          <div className="absolute inset-0 z-[2] bg-gradient-to-b from-[#0A0A0F]/80 via-transparent to-transparent" />
 
-          {/* Layer 3: Bottom fade — seamlessly bleeds into next section */}
-          <div className="absolute inset-0 z-[2] bg-gradient-to-t from-[#0A0A0F] via-[#0A0A0F]/30 to-transparent" />
+          {/* Layer 3: Bottom fade — blends cleanly into next section */}
+          <div className="absolute inset-0 z-[2] bg-gradient-to-t from-[#0A0A0F] via-[#0A0A0F]/20 to-transparent" />
 
-          {/* Layer 4: Center spotlight inversion — keeps text area darkest */}
-          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(10,10,15,0.45) 0%, transparent 100%)' }} />
+          {/* Layer 4: Centre text zone darken — ensures headline is always legible */}
+          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 45%, rgba(10,10,15,0.55) 0%, transparent 100%)' }} />
 
-          {/* Layer 5: Crimson ambient glow — accent behind CTA area */}
-          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 50% 40% at 50% 75%, rgba(220,38,38,0.12) 0%, transparent 70%)' }} />
+          {/* Layer 5: Crimson ambient glow — signature GoldenHour accent */}
+          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 80%, rgba(220,38,38,0.18) 0%, transparent 70%)' }} />
         </div>
 
         {/* Three.js particle canvas with shader compile feedback callback overlay */}
