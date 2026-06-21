@@ -79,6 +79,9 @@ class Settings:
     # Where the hospital confirmation link points. The frontend serves
     # /confirm/<token>, so this is the public site URL.
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    # Where the donor one-tap response link points. This is the backend URL
+    # (the response is recorded server-side when the donor opens the link).
+    backend_url: str = os.getenv("BACKEND_URL", "http://localhost:8000")
     # "console" (print the link), "telegram", or "msg91".
     delivery_channel: str = os.getenv("DELIVERY_CHANNEL", "console")
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")

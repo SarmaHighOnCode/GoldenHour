@@ -65,6 +65,7 @@ class InMemoryStore:
         self.donors: List[Dict] = seed_data.donors()
         self.emergencies: Dict[str, Dict] = {}
         self.confirmations: Dict[str, Dict] = {}  # keyed by token
+        self.donor_tokens: Dict[str, Dict] = {}  # keyed by token
         self._emergency_seq = itertools.count(1)
         self._donor_seq = itertools.count(len(self.donors) + 1)
         # OSM lazy-fetch cache: grid cells already fetched (0.3° ≈ 33 km)
@@ -264,6 +265,34 @@ class InMemoryStore:
             if accepted:
                 emergency["status"] = "confirmed"
 
+    # --- Donor alert tokens -----------------------------------------------
+    def create_donor_alert_token(
+        self, emergency_id: str, donor_phone: str, token: str
+    ) -> None:
+        self.donor_tokens[token] = {
+            "emergency_id": emergency_id,
+            "donor_phone": donor_phone,
+            "responded": False,
+        }
+
+    def record_donor_response(self, token: str) -> bool:
+        """Mark a donor as responded. Returns False if unknown or already used."""
+        rec = self.donor_tokens.get(token)
+        if rec is None or rec["responded"]:
+            return False
+        rec["responded"] = True
+        emergency = self.emergencies.get(rec["emergency_id"])
+        if emergency is not None:
+            emergency["donors_responded"] = emergency.get("donors_responded", 0) + 1
+        return True
+
+    def donor_alerts_for_emergency(self, emergency_id: str) -> List[Dict]:
+        return [
+            {"token": t, **v}
+            for t, v in self.donor_tokens.items()
+            if v["emergency_id"] == emergency_id
+        ]
+
     def ping(self) -> bool:
         """Readiness check — the in-memory store is always ready."""
         return True
@@ -278,6 +307,7 @@ class SupabaseStore:
     def __init__(self, client) -> None:
         self.client = client
         self._hospitals_cache: Optional[List[Dict]] = None
+        self.donor_tokens: Dict[str, Dict] = {}  # in-process; no DB table needed
 
     # --- Hospitals ---------------------------------------------------------
     @property
@@ -496,6 +526,37 @@ class SupabaseStore:
         self.client.table("emergency_requests").update(update).eq(
             "id", conf["emergency_id"]
         ).execute()
+
+    # --- Donor alert tokens -----------------------------------------------
+    def create_donor_alert_token(
+        self, emergency_id: str, donor_phone: str, token: str
+    ) -> None:
+        self.donor_tokens[token] = {
+            "emergency_id": emergency_id,
+            "donor_phone": donor_phone,
+            "responded": False,
+        }
+
+    def record_donor_response(self, token: str) -> bool:
+        """Mark a donor as responded and increment the DB counter."""
+        rec = self.donor_tokens.get(token)
+        if rec is None or rec["responded"]:
+            return False
+        rec["responded"] = True
+        emergency = self.get_emergency(rec["emergency_id"])
+        if emergency is not None:
+            new_count = emergency["donors_responded"] + 1
+            self.client.table("emergency_requests").update(
+                {"donors_responded": new_count}
+            ).eq("id", rec["emergency_id"]).execute()
+        return True
+
+    def donor_alerts_for_emergency(self, emergency_id: str) -> List[Dict]:
+        return [
+            {"token": t, **v}
+            for t, v in self.donor_tokens.items()
+            if v["emergency_id"] == emergency_id
+        ]
 
     def ping(self) -> bool:
         """Readiness check — confirm the database answers a trivial query."""

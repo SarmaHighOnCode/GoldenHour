@@ -229,6 +229,34 @@ def test_emergency_rate_limited_after_burst(client):
     assert _trigger(client).status_code == 429
 
 
+# --- GET /donor/respond/{token} --------------------------------------------
+def test_donor_respond_increments_count(client):
+    request_id = _trigger(client).json()["request_id"]
+    store = store_module.get_store()
+    alerts = store.donor_alerts_for_emergency(request_id)
+    assert alerts, "expected at least one donor alert token"
+    token = alerts[0]["token"]
+
+    before = client.get(f"/emergency/{request_id}/status").json()["donors_responded"]
+    resp = client.get(f"/donor/respond/{token}")
+    assert resp.status_code == 200
+    assert "thank" in resp.text.lower()
+
+    after = client.get(f"/emergency/{request_id}/status").json()["donors_responded"]
+    assert after == before + 1
+
+
+def test_donor_respond_token_is_single_use(client):
+    request_id = _trigger(client).json()["request_id"]
+    token = store_module.get_store().donor_alerts_for_emergency(request_id)[0]["token"]
+    assert client.get(f"/donor/respond/{token}").status_code == 200
+    assert client.get(f"/donor/respond/{token}").status_code == 404
+
+
+def test_donor_respond_unknown_token_is_404(client):
+    assert client.get("/donor/respond/not-a-real-token").status_code == 404
+
+
 # --- POST /sms/inbound -----------------------------------------------------
 def test_sms_inbound_parses_and_replies(client):
     resp = client.post(

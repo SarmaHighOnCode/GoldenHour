@@ -10,6 +10,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 
 from config import settings
 from middleware import add_cors_middleware
@@ -41,7 +42,13 @@ logger = logging.getLogger("goldenhour")
 _emergency_limiter = RateLimiter(max_requests=10, window_seconds=60.0)
 _donor_limiter = RateLimiter(max_requests=10, window_seconds=60.0)
 _confirm_limiter = RateLimiter(max_requests=30, window_seconds=60.0)
-_RATE_LIMITERS = (_emergency_limiter, _donor_limiter, _confirm_limiter)
+_donor_respond_limiter = RateLimiter(max_requests=20, window_seconds=60.0)
+_RATE_LIMITERS = (
+    _emergency_limiter,
+    _donor_limiter,
+    _confirm_limiter,
+    _donor_respond_limiter,
+)
 
 
 def _client_key(request: Request) -> str:
@@ -247,6 +254,42 @@ async def confirm_hospital(token: str, request: HospitalConfirmRequest):
         return confirm_service.handle_confirmation(get_store(), token, request.accepted)
     except confirm_service.ConfirmationNotFound:
         raise HTTPException(status_code=404, detail="Unknown confirmation token")
+
+
+@app.get(
+    "/donor/respond/{token}",
+    tags=["donors"],
+    summary="Donor one-tap response",
+    dependencies=[Depends(_rate_limit(_donor_respond_limiter))],
+)
+async def donor_respond(token: str):
+    """A donor opens this link (from their alert SMS) to confirm they are heading
+    to donate. Increments donors_responded on the emergency — the results screen
+    picks it up on the next poll. Returns a browser-friendly HTML page."""
+    ok = get_store().record_donor_response(token)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Unknown or already used token")
+    return HTMLResponse(
+        """<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GoldenHour — Thank you!</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:420px;margin:60px auto;padding:0 24px;text-align:center;color:#1a1a1a}
+  h1{font-size:2rem;margin-bottom:8px}
+  p{color:#555;line-height:1.6}
+  .badge{display:inline-block;background:#dc2626;color:#fff;border-radius:999px;padding:6px 18px;font-weight:700;font-size:.9rem;margin-bottom:24px}
+</style>
+</head>
+<body>
+  <div class="badge">🩸 GoldenHour</div>
+  <h1>Thank you!</h1>
+  <p>Your commitment has been recorded. Please head to the nearest hospital's <strong>licensed blood bank</strong> — not the emergency ward.</p>
+  <p>Your donation replaces blood used in the patient's surgery and arrives hours later through proper channels.</p>
+</body>
+</html>"""
+    )
 
 
 @app.post(

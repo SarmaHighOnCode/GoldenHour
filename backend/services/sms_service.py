@@ -64,7 +64,11 @@ def deliver_confirmation_link(
     return link
 
 
-def alert_donors(donors: List[Dict], blood_group_needed: str) -> int:
+def alert_donors(
+    donors: List[Dict],
+    blood_group_needed: str,
+    response_urls: Optional[List[str]] = None,
+) -> int:
     """ "Alert" the nearest K matched donors that blood is needed; return the count.
 
     Demo uses the same low-friction channels as the hospital links
@@ -72,14 +76,20 @@ def alert_donors(donors: List[Dict], blood_group_needed: str) -> int:
     is explicit about the operational reality from the PRD: a donor must report
     to a hospital's LICENSED BLOOD BANK, never the emergency ward, or they will
     be turned away. This is replacement donation (hours-later), not acute supply.
+
+    ``response_urls``, when provided, is a parallel list of one-tap links — one
+    per donor in the top-K — that the donor taps to confirm they are heading out.
     """
     top = donors[: settings.donor_alert_k]
-    for d in top:
+    for i, d in enumerate(top):
+        tap_line = ""
+        if response_urls and i < len(response_urls):
+            tap_line = f" Tap to confirm you can donate: {response_urls[i]}"
         message = (
             f"GoldenHour: blood urgently needed near you (patient needs "
             f"{blood_group_needed}). If eligible, please donate at a hospital's "
             f"LICENSED BLOOD BANK - not the emergency ward. Your donation "
-            f"replaces what the patient's surgery uses."
+            f"replaces what the patient's surgery uses.{tap_line}"
         )
         recent_alerts.insert(
             0,

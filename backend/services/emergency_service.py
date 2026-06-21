@@ -28,8 +28,7 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
     """Run the full emergency fan-out and return the API response payload."""
     ranked = await rank_hospitals(store, lat, lng, emergency_type)
     donors = match_donors(store, lat, lng, blood_group)
-    # Blood branch: actually dispatch alerts to the nearest top-K donors.
-    donors_alerted = alert_donors(donors, blood_group)
+    top_k = donors[: settings.donor_alert_k]
 
     # Public hospital cards (no internal scoring fields).
     cards = [
@@ -51,8 +50,19 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
         emergency_type=emergency_type,
         blood_group=blood_group,
         hospital_cards=cards,
-        donors_alerted=donors_alerted,
+        donors_alerted=len(top_k),
     )
+
+    # One one-tap response token per alerted donor — opening the URL records their
+    # commitment and increments donors_responded on the emergency.
+    response_urls: list[str] = []
+    for d in top_k:
+        token = secrets.token_urlsafe(16)
+        store.create_donor_alert_token(emergency["id"], d["phone"], token)
+        response_urls.append(
+            f"{settings.backend_url.rstrip('/')}/donor/respond/{token}"
+        )
+    alert_donors(donors, blood_group, response_urls)
 
     # One confirmation request + link per hospital.
     for c in ranked:
@@ -75,7 +85,7 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
     return {
         "request_id": emergency["id"],
         "hospitals": cards,
-        "donors_alerted": donors_alerted,
+        "donors_alerted": len(top_k),
         "rare_group": is_rare_group(blood_group),
     }
 
@@ -121,21 +131,6 @@ def get_status(store, request_id: str) -> Dict:
         "request_id": request_id,
         "hospitals": hospital_cards,
         "donors_alerted": emergency["donors_alerted"],
-        "donors_responded": _simulated_responses(emergency),
+        "donors_responded": emergency["donors_responded"],
         "unconfirmed_fallback": unconfirmed_fallback,
     }
-
-
-def _simulated_responses(emergency: Dict) -> int:
-    """A gentle, time-based trickle of donor responses for a lively demo.
-
-    Donors don't have a real "respond" endpoint in the prototype; we model the
-    UI counter as roughly one response every 8 seconds, capped at the number
-    alerted. Deterministic given the emergency's age.
-    """
-    alerted = emergency["donors_alerted"]
-    if alerted == 0:
-        return 0
-    created = emergency["created_at"]
-    elapsed = (datetime.now(timezone.utc) - created).total_seconds()
-    return max(0, min(alerted, int(elapsed // 8)))
