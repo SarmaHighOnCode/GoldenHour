@@ -21,9 +21,10 @@ import asyncio
 import json
 import logging
 import random
-import urllib.parse
 import urllib.request
 from typing import Dict, List
+
+import httpx
 
 from config import settings
 from services.geocoder import eta_minutes
@@ -33,12 +34,19 @@ logger = logging.getLogger("goldenhour.hospital_service")
 # If the nearest hospital in the store is beyond this, trigger an OSM fetch.
 _NEARBY_THRESHOLD_KM = 75
 _OSM_RADIUS_KM = 30
-_OSM_TIMEOUT = 20  # seconds per endpoint
+# Per-mirror timeout. Mirrors are RACED concurrently (see _fetch_from_osm), so a
+# single radius query takes ~the fastest healthy mirror, not the sum of
+# sequential failovers — the old 20s x N series routinely outran the browser's
+# fetch and surfaced as "Failed to fetch" before any hospital came back. The
+# lightweight tag-only query returns in ~1.5s on a healthy mirror; this ceiling
+# only bites if every fast mirror is down at once.
+_OSM_TIMEOUT = 18  # seconds per endpoint
 
-# Tried in order — kumi.systems is usually faster than the main instance.
+# Raced concurrently — first healthy mirror wins, the rest are cancelled.
 _OSM_ENDPOINTS = [
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass-api.de/api/interpreter",
+    "https://overpass.openstreetmap.fr/api/interpreter",
 ]
 
 _DEPT_KEYWORDS: Dict[str, List[str]] = {
@@ -241,44 +249,74 @@ async def _fetch_hospitals_nearby(lat: float, lng: float) -> List[Dict]:
 
 
 async def _fetch_from_osm(lat: float, lng: float) -> List[Dict]:
-    """Query Overpass for hospitals near lat/lng, trying mirrors in order."""
+    """Query Overpass for hospitals near lat/lng, racing all mirrors at once.
+
+    Mirrors are fired CONCURRENTLY and the first healthy response wins (the
+    losers are cancelled). The old code tried them sequentially — mirror A
+    (timeout) -> mirror B (timeout) -> ... — so a single slow mirror could
+    stall the request for ``_OSM_TIMEOUT`` x N seconds, long enough that the
+    browser's fetch gave up with "Failed to fetch" before any hospital came
+    back. Racing caps latency at roughly the fastest healthy mirror.
+    """
     r = int(_OSM_RADIUS_KM * 1000)
     a = f"{lat},{lng}"
+    # Tag-only lookups (indexed, fast). The earlier `name~"PHC|CHC|..."` regex
+    # subqueries forced Overpass to scan every named object in the radius, which
+    # blew the server-side timeout and returned ZERO hospitals for real Indian
+    # cities. Govt hospitals (PHC/CHC/Civil/District) are virtually always also
+    # tagged amenity=hospital/clinic or healthcare=*, so we lose nothing and the
+    # query drops from ~30s (0 results) to ~1.5s (dozens of results).
     query = (
-        f"[out:json][timeout:15];\n(\n"
+        f"[out:json][timeout:25];\n(\n"
         f'  node["amenity"="hospital"](around:{r},{a});\n'
         f'  way["amenity"="hospital"](around:{r},{a});\n'
         f'  node["amenity"="clinic"](around:{r},{a});\n'
         f'  way["amenity"="clinic"](around:{r},{a});\n'
+        f'  node["amenity"="doctors"](around:{r},{a});\n'
+        f'  node["healthcare"="hospital"](around:{r},{a});\n'
+        f'  way["healthcare"="hospital"](around:{r},{a});\n'
+        f'  node["healthcare"="clinic"](around:{r},{a});\n'
         f'  node["healthcare"="centre"](around:{r},{a});\n'
-        f'  node["name"~"PHC|CHC|Primary Health|Community Health|Civil Hospital|District Hospital",i](around:{r},{a});\n'
-        f'  way["name"~"PHC|CHC|Primary Health|Community Health|Civil Hospital|District Hospital",i](around:{r},{a});\n'
         f");\nout center tags;\n"
     )
-    payload = urllib.parse.urlencode({"data": query}).encode()
-    logger.info("OSM fetch: lat=%s lng=%s radius=%skm", lat, lng, _OSM_RADIUS_KM)
+    logger.info(
+        "OSM fetch: lat=%s lng=%s radius=%skm (racing %d mirrors)",
+        lat,
+        lng,
+        _OSM_RADIUS_KM,
+        len(_OSM_ENDPOINTS),
+    )
 
-    for endpoint in _OSM_ENDPOINTS:
-        req = urllib.request.Request(endpoint, data=payload, method="POST")
-        req.add_header("User-Agent", "GoldenHour-Emergency/1.0")
-        req.add_header("Content-Type", "application/x-www-form-urlencoded")
-
-        def _do(r=req):
-            with urllib.request.urlopen(r, timeout=_OSM_TIMEOUT) as resp:
-                return json.loads(resp.read())["elements"]
-
-        try:
-            elements = await asyncio.wait_for(
-                asyncio.to_thread(_do), timeout=_OSM_TIMEOUT + 3
+    async def _one(endpoint: str) -> List[Dict]:
+        async with httpx.AsyncClient(timeout=_OSM_TIMEOUT) as client:
+            resp = await client.post(
+                endpoint,
+                data={"data": query},
+                headers={"User-Agent": "GoldenHour-Emergency/1.0"},
             )
-            hospitals = _parse_osm_elements(elements)
-            logger.info("OSM fetch: %d hospitals from %s", len(hospitals), endpoint)
-            return hospitals
-        except Exception as exc:
-            logger.warning("OSM endpoint %s failed (%s), trying next", endpoint, exc)
+            resp.raise_for_status()
+            return resp.json()["elements"]
 
-    logger.warning("All OSM endpoints failed — no new hospitals added")
-    return []
+    tasks = [asyncio.create_task(_one(url)) for url in _OSM_ENDPOINTS]
+    try:
+        for fut in asyncio.as_completed(tasks):
+            try:
+                elements = await fut  # first mirror to return 200 wins
+            except Exception as exc:
+                logger.warning("OSM mirror failed (%s), awaiting another", exc)
+                continue
+            hospitals = _parse_osm_elements(elements)
+            logger.info("OSM fetch: %d hospitals", len(hospitals))
+            return hospitals
+        logger.warning("All OSM endpoints failed — no new hospitals added")
+        return []
+    finally:
+        # Cancel the slower mirrors and drain them so cancelled tasks don't
+        # surface as "Task exception was never retrieved" warnings.
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 # emergency_type -> hospital department required to treat it
