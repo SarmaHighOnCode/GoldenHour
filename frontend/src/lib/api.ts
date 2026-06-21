@@ -14,6 +14,7 @@ export interface EmergencyResponse {
   request_id: string;
   hospitals: Hospital[];
   donors_alerted: number;
+  rare_group?: boolean;
 }
 
 export interface EmergencyStatusResponse {
@@ -26,6 +27,7 @@ export interface EmergencyStatusResponse {
   }>;
   donors_alerted: number;
   donors_responded: number;
+  unconfirmed_fallback?: boolean;
 }
 
 export interface DonorRegisterResponse {
@@ -92,7 +94,8 @@ export const api = {
     bloodGroup: string,
     lat: number | null,
     lng: number | null,
-    lastDonated: string | null
+    lastDonated: string | null,
+    sex?: 'male' | 'female' | null
   ): Promise<DonorRegisterResponse> {
     const res = await fetch(`${BASE_URL}/donor/register`, {
       method: 'POST',
@@ -106,6 +109,7 @@ export const api = {
         lat,
         lng,
         last_donated: lastDonated,
+        sex,
       }),
     });
     if (!res.ok) {

@@ -72,6 +72,11 @@ export default function PatientIntakeView() {
     try {
       const data = await api.triggerEmergency(coords.lat, coords.lng, emergencyType, bloodGroup);
       if (data && data.request_id) {
+        sessionStorage.setItem(`emergency_${data.request_id}`, JSON.stringify({
+          bloodGroup,
+          emergencyType,
+          rareGroup: data.rare_group ?? bloodGroup.endsWith('-')
+        }));
         navigate(`/results/${data.request_id}`);
       } else {
         throw new Error('Invalid request ID returned from server.');
