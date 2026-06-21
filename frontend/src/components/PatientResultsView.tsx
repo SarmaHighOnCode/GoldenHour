@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useGSAP } from '@gsap/react';
 import { Card } from './ui/Card';
 import { api } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { GlassCard, CountUp, ShimmerSkeleton, AnimatedStatusBadge } from './ui/Effects';
+import { gsap, ScrollTrigger } from '../lib/gsap-setup';
 
 interface Hospital {
   hospital_id: string;
@@ -45,6 +47,30 @@ export default function PatientResultsView() {
   });
 
   const mountTime = useRef<number>(Date.now());
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [prefersReduced, setPrefersReduced] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReduced(mediaQuery.matches);
+    const motionHandler = (e: MediaQueryListEvent) => setPrefersReduced(e.matches);
+    mediaQuery.addEventListener('change', motionHandler);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      mediaQuery.removeEventListener('change', motionHandler);
+    };
+  }, []);
+
+  const enableStacking = !isMobile && !prefersReduced;
 
   // Save toggle choice in localStorage
   useEffect(() => {
@@ -249,6 +275,48 @@ export default function PatientResultsView() {
     return a.eta_minutes - b.eta_minutes;
   });
 
+  const dependencyKey = sortedHospitals.map(h => `${h.hospital_id}-${h.status}`).join(',');
+
+  useGSAP(() => {
+    if (!enableStacking) return;
+
+    // Clean up any existing card-stacking ScrollTriggers first to avoid collisions
+    ScrollTrigger.getAll().forEach(trigger => {
+      if (trigger.vars.id === 'card-stacking') {
+        trigger.kill();
+      }
+    });
+
+    const cards = gsap.utils.toArray<HTMLElement>('.hospital-card-wrapper');
+    if (cards.length === 0) return;
+
+    cards.forEach((card, index) => {
+      // The last card doesn't need to scale down/fade out since nothing stacks on top of it
+      if (index === cards.length - 1) return;
+
+      const innerCard = card.querySelector('.shadow-layered') || card.firstElementChild;
+      if (!innerCard) return;
+
+      gsap.to(innerCard, {
+        scale: 0.92,
+        opacity: 0.5,
+        boxShadow: '0 25px 50px -12px rgba(26, 23, 20, 0.25)',
+        transformOrigin: 'top center',
+        ease: 'none',
+        scrollTrigger: {
+          id: 'card-stacking',
+          trigger: card,
+          start: `top top+=${80 + index * 16}`,
+          end: `bottom top+=${80 + index * 16}`,
+          scrub: true,
+          invalidateOnRefresh: true,
+        }
+      });
+    });
+
+    ScrollTrigger.refresh();
+  }, { scope: listContainerRef, dependencies: [dependencyKey, enableStacking] });
+
   return (
     <div className="w-full max-w-md mx-auto space-y-6 pb-28 select-none">
       
@@ -337,7 +405,7 @@ export default function PatientResultsView() {
       </div>
 
       {/* Hospital Cards (AnimatePresence for layout transition animations) */}
-      <div className="space-y-4" aria-live="polite">
+      <div ref={listContainerRef} className="space-y-4 relative" aria-live="polite">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -410,6 +478,12 @@ export default function PatientResultsView() {
                 <motion.div
                   key={h.hospital_id}
                   layout
+                  className="hospital-card-wrapper"
+                  style={{
+                    position: enableStacking ? 'sticky' : 'relative',
+                    top: enableStacking ? `calc(80px + ${index * 16}px)` : 'auto',
+                    zIndex: index + 1,
+                  }}
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
