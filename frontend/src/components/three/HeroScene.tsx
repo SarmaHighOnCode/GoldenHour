@@ -131,11 +131,14 @@ export const HeroScene: React.FC<{ className?: string; onLoaded?: () => void }> 
       const heartX = 16 * Math.pow(Math.sin(t), 3);
       const heartY = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
 
-      const scale = 0.08;
-      const noise = 0.45 + Math.random() * 0.55;
-      positions[i3] = heartX * scale * noise + (Math.random() - 0.5) * 0.7;
-      positions[i3 + 1] = heartY * scale * noise + (Math.random() - 0.5) * 0.7 + 0.35;
-      positions[i3 + 2] = (Math.random() - 0.5) * 1.5;
+      const scale = 0.09;
+      // Use square root for more uniform internal distribution, or keep it close to 1 for an outline
+      const noise = Math.pow(Math.random(), 0.3); // Concentrates particles towards the outer edge
+      
+      // Significantly reduce jitter so the heart outline is preserved
+      positions[i3] = heartX * scale * noise + (Math.random() - 0.5) * 0.15;
+      positions[i3 + 1] = heartY * scale * noise + (Math.random() - 0.5) * 0.15 + 0.2;
+      positions[i3 + 2] = (Math.random() - 0.5) * 0.4;
 
       originalPositions[i3] = positions[i3];
       originalPositions[i3 + 1] = positions[i3 + 1];
