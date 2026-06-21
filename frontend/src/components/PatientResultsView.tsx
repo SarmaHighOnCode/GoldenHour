@@ -25,10 +25,15 @@ export default function PatientResultsView() {
     { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, department_match: false, status: "pending", phone: "+910000000000" },
   ]);
 
-  // Alert metrics — both come from the API (donors_alerted from the trigger,
-  // updated on every status poll).
+  // Alert metrics
   const [donorsAlerted, setDonorsAlerted] = useState(0);
   const [donorsResponded, setDonorsResponded] = useState(0);
+
+  // Dynamic status states
+  const [bloodGroup, setBloodGroup] = useState<string>('');
+  const [rareGroup, setRareGroup] = useState<boolean>(false);
+  const [unconfirmedFallback, setUnconfirmedFallback] = useState<boolean>(false);
+  const [mockTimeoutSimulation, setMockTimeoutSimulation] = useState<boolean>(false);
 
   // loading skeleton & error states
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -40,16 +45,35 @@ export default function PatientResultsView() {
   });
 
   const mountTime = useRef<number>(Date.now());
+  const isMockModeInitialized = useRef(false);
 
-  // Save toggle choice in localStorage
+  // Save toggle choice in localStorage, but skip the first render so the default
+  // is never baked in for users who have never explicitly toggled.
   useEffect(() => {
+    if (!isMockModeInitialized.current) { isMockModeInitialized.current = true; return; }
     localStorage.setItem('goldenhour_mock_mode', String(isMockMode));
   }, [isMockMode]);
+
+  // Load cached emergency details from sessionStorage
+  useEffect(() => {
+    if (!id) return;
+    const stored = sessionStorage.getItem(`emergency_${id}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setBloodGroup(parsed.bloodGroup || '');
+        setRareGroup(parsed.rareGroup ?? parsed.bloodGroup?.endsWith('-') ?? false);
+      } catch (e) {
+        console.error('Failed to parse cached emergency metadata:', e);
+      }
+    }
+  }, [id]);
 
   // Process data returned from status payload
   const updateStateFromPayload = (data: any) => {
     if (typeof data.donors_alerted === 'number') setDonorsAlerted(data.donors_alerted);
     setDonorsResponded(data.donors_responded ?? 0);
+    setUnconfirmedFallback(data.unconfirmed_fallback ?? false);
     if (Array.isArray(data.hospitals)) {
       setHospitals(prev => {
         return data.hospitals.map((newH: any) => {
@@ -77,13 +101,20 @@ export default function PatientResultsView() {
 
       const mockPayload = {
         request_id: requestId,
-        hospitals: [
-          { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, status: "pending" as const },
-          { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, status: isAfter4s ? "confirmed" as const : "pending" as const },
-          { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, status: isAfter8s ? "declined" as const : "pending" as const }
-        ],
+        hospitals: mockTimeoutSimulation
+          ? [
+              { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, status: "pending" as const },
+              { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, status: "pending" as const },
+              { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, status: "pending" as const }
+            ]
+          : [
+              { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, status: "pending" as const },
+              { hospital_id: "h2", name: "Fortis Jaipur", eta_minutes: 9, status: isAfter4s ? "confirmed" as const : "pending" as const },
+              { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, status: isAfter8s ? "declined" as const : "pending" as const }
+            ],
         donors_alerted: 5,
-        donors_responded: isAfter4s ? 2 : 0
+        donors_responded: isAfter4s && !mockTimeoutSimulation ? 2 : 0,
+        unconfirmed_fallback: mockTimeoutSimulation
       };
 
       updateStateFromPayload(mockPayload);
@@ -122,7 +153,7 @@ export default function PatientResultsView() {
       clearInterval(intervalId);
       clearTimeout(skeletonTimer);
     };
-  }, [id, isMockMode]);
+  }, [id, isMockMode, mockTimeoutSimulation]);
 
   // Supabase Realtime subscription (live socket push changes)
   useEffect(() => {
@@ -174,6 +205,7 @@ export default function PatientResultsView() {
           const updatedReq = payload.new;
           if (updatedReq) {
             setDonorsResponded(updatedReq.donors_responded ?? 0);
+            setUnconfirmedFallback(updatedReq.unconfirmed_fallback ?? false);
             if (updatedReq.hospitals) {
               setHospitals(prev => {
                 return updatedReq.hospitals.map((newH: any) => {
@@ -225,6 +257,22 @@ export default function PatientResultsView() {
           <span className="font-extrabold text-lg text-ink">Finding help…</span>
         </div>
         <div className="flex items-center gap-2">
+          {isMockMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setMockTimeoutSimulation(!mockTimeoutSimulation);
+                mountTime.current = Date.now(); // reset mock timer
+              }}
+              className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
+                mockTimeoutSimulation 
+                  ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200' 
+                  : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              TIMEOUT: {mockTimeoutSimulation ? 'ON' : 'OFF'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -243,6 +291,41 @@ export default function PatientResultsView() {
             ID: {id}
           </span>
         </div>
+      </div>
+
+      {/* Warning Banners (Rare blood / Timeout Fallback) */}
+      <div className="space-y-3">
+        {rareGroup && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 border border-amber-200/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm"
+          >
+            <span className="text-xl flex-shrink-0" role="img" aria-label="Warning">⚠️</span>
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Rare Blood Group Requested</h4>
+              <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
+                Compatible donors for blood group <span className="font-extrabold text-amber-900">{bloodGroup || 'Rh-negative'}</span> are scarce. Alerts have been broadcast, but supply may be limited.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {unconfirmedFallback && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50 border border-red-200/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm animate-pulse-glow"
+          >
+            <span className="text-xl flex-shrink-0" role="img" aria-label="Alarm">🚨</span>
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-red-800 uppercase tracking-wider">Response Timeout Fallback</h4>
+              <p className="text-[11px] text-red-700 leading-relaxed font-medium">
+                No hospital has confirmed the request yet. We strongly recommend contacting the nearest hospital directly using the call links below.
+              </p>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Hospital Cards (AnimatePresence for layout transition animations) */}
