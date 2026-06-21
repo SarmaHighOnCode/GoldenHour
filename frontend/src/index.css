@@ -10,10 +10,10 @@
   --color-ink: #1A1714;
   --color-ink-muted: #6B6560;
   
-  --color-dark-bg: #0A0A0F;
-  --color-dark-surface: #14141F;
+  --color-dark-bg: #14141A;
+  --color-dark-surface: #1E1E2A;
   --color-dark-ink: #F0EDE8;
-  --color-dark-ink-muted: #8A8580;
+  --color-dark-ink-muted: #A09B95;
   
   --color-emergency: #DC2626;
   --color-emergency-pressed: #B91C1C;
@@ -39,10 +39,10 @@
 
 /* Dark theme for home/hero */
 [data-theme="dark"] {
-  --color-bg: #0A0A0F;
-  --color-surface: #14141F;
+  --color-bg: #14141A;
+  --color-surface: #1E1E2A;
   --color-ink: #F0EDE8;
-  --color-ink-muted: #8A8580;
+  --color-ink-muted: #A09B95;
 }
 
 /* ========================
@@ -229,7 +229,7 @@ html.lenis, html.lenis body {
   transform: translate(-50%, -50%);
   width: 60%;
   height: 60%;
-  background: radial-gradient(ellipse, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(245, 158, 11, 0.2) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -245,7 +245,7 @@ html.lenis, html.lenis body {
   transform: translate(-50%, -50%);
   width: 40%;
   height: 40%;
-  background: radial-gradient(ellipse, rgba(220, 38, 38, 0.08) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(220, 38, 38, 0.15) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -253,8 +253,8 @@ html.lenis, html.lenis body {
 /* Grid overlay for hero */
 .grid-overlay {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
   background-size: 80px 80px;
 }
 

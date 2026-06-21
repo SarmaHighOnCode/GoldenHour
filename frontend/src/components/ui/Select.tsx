@@ -1,51 +1,110 @@
-import React, { useId } from 'react';
+import React, { useId, useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 
-export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+export interface SelectProps {
   label: string;
+  value: string;
+  onChange: (e: { target: { value: string } }) => void;
   options: { value: string; label: string }[];
   error?: string;
+  className?: string;
 }
 
 export const Select: React.FC<SelectProps> = ({
   label,
+  value,
+  onChange,
   options,
   error,
   className = '',
-  ...props
 }) => {
   const id = useId();
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find(opt => opt.value === value);
+  const displayLabel = selectedOption ? selectedOption.label : options[0]?.label;
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="space-y-1.5 w-full relative">
+    <div className="space-y-1.5 w-full relative" ref={dropdownRef}>
       <label 
         htmlFor={id} 
-        className="block text-xs font-bold text-ink-muted uppercase tracking-wider select-none"
+        className="block text-xs font-bold text-dark-ink-muted uppercase tracking-wider select-none"
       >
         {label}
       </label>
       
       <div className="relative">
-        <select
+        <button
           id={id}
-          className={`w-full h-14 bg-white border-2 border-slate-200 focus:border-ink rounded-xl pl-4 pr-10 text-sm font-bold text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/15 appearance-none cursor-pointer transition-all ${
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full h-14 flex items-center justify-between bg-white/5 border border-white/10 hover:border-white/20 focus:border-goldenhour focus:bg-white/10 rounded-xl pl-4 pr-4 text-sm font-bold text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-goldenhour/20 cursor-pointer transition-all backdrop-blur-sm ${
             error ? 'border-emergency focus:border-emergency focus-visible:ring-red-500/15' : ''
           } ${className}`}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236B6560' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-            backgroundPosition: 'right 1rem center',
-            backgroundSize: '1.25rem 1.25rem',
-            backgroundRepeat: 'no-repeat',
-          }}
-          {...props}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
         >
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value} className="font-bold text-slate-800 bg-white">
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          <span className={value ? 'text-white' : 'text-white/40'}>
+            {displayLabel}
+          </span>
+          <svg 
+            className={`w-5 h-5 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="absolute z-50 w-full mt-2 bg-[#1A1A24] border border-white/10 rounded-xl shadow-xl overflow-hidden backdrop-blur-md"
+              role="listbox"
+            >
+              <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                {options.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="option"
+                    aria-selected={value === opt.value}
+                    className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${
+                      value === opt.value 
+                        ? 'bg-goldenhour/20 text-goldenhour' 
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    }`}
+                    onClick={() => {
+                      onChange({ target: { value: opt.value } });
+                      setIsOpen(false);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       
       {error && (

@@ -112,17 +112,30 @@ export default function PatientIntakeView() {
       // Title letters stagger
       if (heroTitleRef.current) {
         const text = heroTitleRef.current.textContent || '';
+        const words = text.trim().split(' ');
         heroTitleRef.current.innerHTML = '';
-        text.split('').forEach((char, i) => {
-          const span = document.createElement('span');
-          span.textContent = char === ' ' ? '\u00A0' : char;
-          span.style.display = 'inline-block';
-          span.style.opacity = '0';
-          span.style.transform = 'translateY(100%)';
-          heroTitleRef.current!.appendChild(span);
+        
+        words.forEach((word, wordIdx) => {
+          const wordSpan = document.createElement('span');
+          wordSpan.style.display = 'inline-block';
+          wordSpan.style.whiteSpace = 'nowrap';
+          
+          word.split('').forEach((char) => {
+            const span = document.createElement('span');
+            span.textContent = char;
+            span.style.display = 'inline-block';
+            span.style.opacity = '0';
+            span.style.transform = 'translateY(100%)';
+            wordSpan.appendChild(span);
+          });
+          
+          heroTitleRef.current!.appendChild(wordSpan);
+          if (wordIdx < words.length - 1) {
+            heroTitleRef.current!.appendChild(document.createTextNode(' '));
+          }
         });
 
-        gsap.to(heroTitleRef.current.children, {
+        gsap.to(heroTitleRef.current.querySelectorAll('span > span'), {
           opacity: 1,
           y: 0,
           duration: 0.8,
@@ -190,7 +203,7 @@ export default function PatientIntakeView() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 bg-[#0A0A0F] z-[99999] flex flex-col items-center justify-center space-y-6"
+            className="fixed inset-0 bg-[#14141A] z-[99999] flex flex-col items-center justify-center space-y-6"
             style={{ pointerEvents: 'auto' }}
           >
             <div className="flex flex-col items-center max-w-sm text-center px-6">
