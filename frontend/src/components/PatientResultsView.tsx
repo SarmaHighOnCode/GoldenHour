@@ -315,7 +315,7 @@ export default function PatientResultsView() {
     });
 
     ScrollTrigger.refresh();
-  }, { scope: listContainerRef, dependencies: [dependencyKey, enableStacking] });
+  }, { scope: listContainerRef, dependencies: [dependencyKey, enableStacking, isLoading, hasError] });
 
   return (
     <div className="w-full max-w-md mx-auto space-y-6 pb-28 select-none">
@@ -330,41 +330,22 @@ export default function PatientResultsView() {
           </span>
           <span className="font-extrabold text-lg text-ink">Finding help…</span>
         </div>
-        {import.meta.env.DEV && (
+        {import.meta.env.DEV && isMockMode && (
           <div className="flex items-center gap-2">
-            {isMockMode && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMockTimeoutSimulation(!mockTimeoutSimulation);
-                  mountTime.current = Date.now(); // reset mock timer
-                }}
-                className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
-                  mockTimeoutSimulation 
-                    ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200' 
-                    : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
-                }`}
-              >
-                TIMEOUT: {mockTimeoutSimulation ? 'ON' : 'OFF'}
-              </button>
-            )}
             <button
               type="button"
               onClick={() => {
-                setIsMockMode(!isMockMode);
-                mountTime.current = Date.now(); // reset mock timer on toggle
+                setMockTimeoutSimulation(!mockTimeoutSimulation);
+                mountTime.current = Date.now(); // reset mock timer
               }}
               className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
-                isMockMode 
-                  ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200' 
-                  : 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
+                mockTimeoutSimulation 
+                  ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200' 
+                  : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
               }`}
             >
-              {isMockMode ? 'MOCK: ON' : 'REAL API'}
+              TIMEOUT: {mockTimeoutSimulation ? 'ON' : 'OFF'}
             </button>
-            <span className="text-xs font-semibold text-ink-muted bg-slate-100 px-2.5 py-1 rounded-lg">
-              ID: {id}
-            </span>
           </div>
         )}
       </div>
