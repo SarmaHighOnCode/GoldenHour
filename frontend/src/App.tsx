@@ -26,23 +26,24 @@ const PageWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 function AppContent() {
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const isRegister = location.pathname === '/register';
   const isHospitalConfirm = location.pathname.startsWith('/confirm/');
 
-  // Dark theme for home, light for sub-screens
-  const theme = isHome ? 'dark' : 'light';
+  // Dark theme for home and donor registration
+  const theme = isHome || isRegister ? 'dark' : 'light';
 
   return (
     <div
       data-theme={theme}
       className={`min-h-screen flex flex-col antialiased relative selection:bg-goldenhour/25 transition-colors duration-500 ${
-        isHome
+        (isHome || isRegister)
           ? 'bg-dark-bg text-dark-ink'
           : 'bg-bg-warm text-ink'
       }`}
     >
       <CustomCursor />
       {/* GoldenHour sunset gradient branding line */}
-      {!isHome && (
+      {!(isHome || isRegister) && (
         <div
           className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency z-[100]"
           role="presentation"
@@ -52,7 +53,7 @@ function AppContent() {
       {!isHospitalConfirm && <AppBar />}
 
       <main className={`flex-grow flex flex-col items-center justify-center w-full relative ${
-        isHome ? '' : 'p-4 pt-6 pb-12'
+        (isHome || isRegister) ? '' : 'p-4 pt-6 pb-12'
       }`}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>

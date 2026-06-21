@@ -4,6 +4,7 @@ In production the radius queries run inside PostGIS (``ST_DWithin`` /
 ``ST_Distance``). In demo mode we reproduce the same maths in Python with the
 haversine formula so the app behaves identically without a database.
 """
+
 from __future__ import annotations
 
 import math

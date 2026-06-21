@@ -12,6 +12,7 @@ Two responsibilities:
    ``BLOOD O+ Malviya Nagar Jaipur``. We parse the group + locality, find the
    nearest hospitals, and reply with a plain-text list.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,7 +21,6 @@ from typing import Dict, List, Optional
 
 from blood import ALL_GROUPS
 from config import settings
-from geo import haversine_km
 from services.geocoder import geocode_area
 
 logger = logging.getLogger("goldenhour.sms")
@@ -33,13 +33,17 @@ recent_alerts: List[Dict] = []
 
 # Match blood groups in free text, longest first so "AB+" wins over "B+".
 _GROUP_RE = re.compile(
-    r"\b(" + "|".join(sorted((re.escape(g) for g in ALL_GROUPS), key=len, reverse=True)) + r")\b",
+    r"\b("
+    + "|".join(sorted((re.escape(g) for g in ALL_GROUPS), key=len, reverse=True))
+    + r")\b",
     re.IGNORECASE,
 )
 
 
 # --- Outbound --------------------------------------------------------------
-def deliver_confirmation_link(hospital_name: str, contact_phone: str, token: str) -> str:
+def deliver_confirmation_link(
+    hospital_name: str, contact_phone: str, token: str
+) -> str:
     """Build and "send" a hospital confirmation link; return the URL."""
     link = f"{settings.frontend_url.rstrip('/')}/confirm/{token}"
     recent_links.insert(
@@ -54,26 +58,38 @@ def deliver_confirmation_link(hospital_name: str, contact_phone: str, token: str
     elif channel == "telegram":
         _send_telegram(f"{hospital_name}: {link}")
     else:
-        logger.info("Link for %s queued for %s delivery: %s", hospital_name, channel, link)
+        logger.info(
+            "Link for %s queued for %s delivery: %s", hospital_name, channel, link
+        )
     return link
 
 
-def alert_donors(donors: List[Dict], blood_group_needed: str) -> int:
-    """"Alert" the nearest K matched donors that blood is needed; return the count.
+def alert_donors(
+    donors: List[Dict],
+    blood_group_needed: str,
+    response_urls: Optional[List[str]] = None,
+) -> int:
+    """ "Alert" the nearest K matched donors that blood is needed; return the count.
 
     Demo uses the same low-friction channels as the hospital links
     (console/Telegram/log); production swaps in MSG91/Gupshup + DLT. The message
     is explicit about the operational reality from the PRD: a donor must report
     to a hospital's LICENSED BLOOD BANK, never the emergency ward, or they will
     be turned away. This is replacement donation (hours-later), not acute supply.
+
+    ``response_urls``, when provided, is a parallel list of one-tap links — one
+    per donor in the top-K — that the donor taps to confirm they are heading out.
     """
     top = donors[: settings.donor_alert_k]
-    for d in top:
+    for i, d in enumerate(top):
+        tap_line = ""
+        if response_urls and i < len(response_urls):
+            tap_line = f" Tap to confirm you can donate: {response_urls[i]}"
         message = (
             f"GoldenHour: blood urgently needed near you (patient needs "
             f"{blood_group_needed}). If eligible, please donate at a hospital's "
             f"LICENSED BLOOD BANK - not the emergency ward. Your donation "
-            f"replaces what the patient's surgery uses."
+            f"replaces what the patient's surgery uses.{tap_line}"
         )
         recent_alerts.insert(
             0,
@@ -127,7 +143,10 @@ def parse_blood_group(body: str) -> Optional[str]:
 def handle_inbound(store, from_number: str, body: str) -> str:
     """Parse an inbound SMS and return the reply text."""
     group = parse_blood_group(body)
-    coords = geocode_area(body) or (store.hospitals[0]["lat"], store.hospitals[0]["lng"])
+    coords = geocode_area(body) or (
+        store.hospitals[0]["lat"],
+        store.hospitals[0]["lng"],
+    )
     lat, lng = coords
 
     hospitals = store.hospitals_with_distance(lat, lng)

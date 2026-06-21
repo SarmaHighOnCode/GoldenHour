@@ -1,4 +1,5 @@
 """Endpoint tests — verify the API_CONTRACT.md shapes and the live flow."""
+
 from tests.conftest import JAIPUR
 
 import store as store_module
@@ -38,8 +39,13 @@ def test_emergency_returns_contract_shape(client):
 
     card = body["hospitals"][0]
     assert set(card) == {
-        "hospital_id", "name", "eta_minutes", "department_match",
-        "distance_km", "status", "phone",
+        "hospital_id",
+        "name",
+        "eta_minutes",
+        "department_match",
+        "distance_km",
+        "status",
+        "phone",
     }
     assert card["status"] == "pending"
 
@@ -85,7 +91,10 @@ def test_status_shape(client):
     request_id = _trigger(client).json()["request_id"]
     body = client.get(f"/emergency/{request_id}/status").json()
     assert set(body) == {
-        "request_id", "hospitals", "donors_alerted", "donors_responded",
+        "request_id",
+        "hospitals",
+        "donors_alerted",
+        "donors_responded",
         "unconfirmed_fallback",
     }
     assert body["request_id"] == request_id
@@ -129,6 +138,57 @@ def test_confirm_unknown_token_is_404(client):
     assert resp.status_code == 404
 
 
+# --- GET /confirm/{token} — details for the hospital page ------------------
+def test_confirm_details_shape_and_values(client):
+    request_id = _trigger(client, emergency_type="trauma", blood_group="O+").json()[
+        "request_id"
+    ]
+    store = store_module.get_store()
+    conf = store.confirmations_for_emergency(request_id)[0]
+
+    body = client.get(f"/confirm/{conf['token']}").json()
+    assert set(body) == {
+        "hospital_name",
+        "emergency_type",
+        "blood_group",
+        "eta_minutes",
+        "already_confirmed",
+        "responded",
+        "accepted",
+    }
+    assert body["emergency_type"] == "trauma"
+    assert body["blood_group"] == "O+"
+    assert body["hospital_name"] == conf["hospital_name"]
+    assert isinstance(body["eta_minutes"], int)
+    # Freshly created, nobody has replied yet.
+    assert body["already_confirmed"] is False
+    assert body["responded"] is False
+    assert body["accepted"] is False
+
+
+def test_confirm_details_reflects_reply_and_race(client):
+    request_id = _trigger(client).json()["request_id"]
+    store = store_module.get_store()
+    confs = store.confirmations_for_emergency(request_id)
+    first, second = confs[0], confs[1]
+
+    client.post(f"/confirm/{first['token']}", json={"accepted": True})
+
+    # The hospital that accepted sees responded/accepted true.
+    winner = client.get(f"/confirm/{first['token']}").json()
+    assert winner["responded"] is True
+    assert winner["accepted"] is True
+
+    # Another hospital sees the patient is already routed.
+    other = client.get(f"/confirm/{second['token']}").json()
+    assert other["already_confirmed"] is True
+    assert other["responded"] is False
+
+
+def test_confirm_details_unknown_token_is_404(client):
+    assert client.get("/confirm/does-not-exist").status_code == 404
+
+
 # --- POST /donor/register --------------------------------------------------
 def test_register_donor(client):
     resp = client.post(
@@ -146,6 +206,58 @@ def test_register_donor(client):
     body = resp.json()
     assert body["ok"] is True
     assert body["donor_id"].startswith("d")
+
+
+# --- Security: token strength + rate limiting ------------------------------
+def test_confirmation_tokens_are_strong_and_unique(client):
+    request_id = _trigger(client).json()["request_id"]
+    store = store_module.get_store()
+    tokens = [c["token"] for c in store.confirmations_for_emergency(request_id)]
+    assert tokens, "expected at least one confirmation token"
+    # secrets.token_urlsafe(16) -> ~22 chars; far longer than a 12-char uuid slice.
+    assert all(len(t) >= 20 for t in tokens)
+    assert len(set(tokens)) == len(tokens)
+
+
+def test_emergency_rate_limited_after_burst(client):
+    import main as main_module
+
+    limiter = main_module._emergency_limiter
+    # Saturate the window for the test client's key directly — this keeps the
+    # test instant and deterministic (no dependence on wall-clock or on the
+    # speed of the real hospital-ranking work behind the endpoint).
+    for _ in range(limiter.max_requests):
+        limiter.allow("testclient")
+    # The next real call is rejected by the dependency before any work runs.
+    assert _trigger(client).status_code == 429
+
+
+# --- GET /donor/respond/{token} --------------------------------------------
+def test_donor_respond_increments_count(client):
+    request_id = _trigger(client).json()["request_id"]
+    store = store_module.get_store()
+    alerts = store.donor_alerts_for_emergency(request_id)
+    assert alerts, "expected at least one donor alert token"
+    token = alerts[0]["token"]
+
+    before = client.get(f"/emergency/{request_id}/status").json()["donors_responded"]
+    resp = client.get(f"/donor/respond/{token}")
+    assert resp.status_code == 200
+    assert "thank" in resp.text.lower()
+
+    after = client.get(f"/emergency/{request_id}/status").json()["donors_responded"]
+    assert after == before + 1
+
+
+def test_donor_respond_token_is_single_use(client):
+    request_id = _trigger(client).json()["request_id"]
+    token = store_module.get_store().donor_alerts_for_emergency(request_id)[0]["token"]
+    assert client.get(f"/donor/respond/{token}").status_code == 200
+    assert client.get(f"/donor/respond/{token}").status_code == 404
+
+
+def test_donor_respond_unknown_token_is_404(client):
+    assert client.get("/donor/respond/not-a-real-token").status_code == 404
 
 
 # --- POST /sms/inbound -----------------------------------------------------

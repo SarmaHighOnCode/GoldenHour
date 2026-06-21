@@ -5,6 +5,7 @@ Without an API key (CI, local demo) we estimate ETA from straight-line distance
 and an average city speed — good enough to rank hospitals and show a plausible
 "6 min" badge.
 """
+
 from __future__ import annotations
 
 import math
@@ -50,7 +51,9 @@ async def eta_minutes(
         eta = await _google_eta(origin_lat, origin_lng, dest_lat, dest_lng)
         if eta is not None:
             return eta
-    return estimate_eta_minutes(haversine_km(origin_lat, origin_lng, dest_lat, dest_lng))
+    return estimate_eta_minutes(
+        haversine_km(origin_lat, origin_lng, dest_lat, dest_lng)
+    )
 
 
 async def _google_eta(

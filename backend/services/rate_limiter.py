@@ -5,6 +5,7 @@ Guards the write endpoints (notably ``POST /emergency`` and
 double-tapping, or a runaway client. In-process and per-key; for a single-node
 demo that is sufficient. A multi-node deployment would back this with Redis.
 """
+
 from __future__ import annotations
 
 import time

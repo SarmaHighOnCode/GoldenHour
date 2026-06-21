@@ -17,13 +17,13 @@ export const Input: React.FC<InputProps> = ({
     <div className="space-y-1.5 w-full">
       <label 
         htmlFor={id} 
-        className="block text-xs font-bold text-ink-muted uppercase tracking-wider select-none"
+        className="block text-[10px] font-extrabold text-white/50 uppercase tracking-[0.15em] select-none"
       >
         {label}
       </label>
       <input
         id={id}
-        className={`w-full h-14 bg-white border-2 border-slate-200 focus:border-ink rounded-xl px-4 text-sm font-semibold text-ink placeholder-slate-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/15 transition-all ${
+        className={`w-full h-14 bg-white/5 border border-white/10 hover:border-white/20 focus:border-goldenhour focus:bg-white/10 rounded-xl px-4 text-sm font-bold text-white placeholder-white/30 focus:outline-none focus-visible:ring-4 focus-visible:ring-goldenhour/20 transition-all backdrop-blur-sm ${
           error ? 'border-emergency focus:border-emergency focus-visible:ring-red-500/15' : ''
         } ${className}`}
         aria-invalid={!!error}

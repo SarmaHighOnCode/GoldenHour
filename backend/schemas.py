@@ -4,6 +4,7 @@ These mirror ``API_CONTRACT.md`` **exactly** — the field names and shapes here
 are the contract the frontend builds against. Do not rename a field without
 updating ``API_CONTRACT.md`` and telling the frontend owner first.
 """
+
 from __future__ import annotations
 
 from typing import Annotated, List, Literal, Optional
@@ -53,8 +54,6 @@ class HospitalStatusCard(BaseModel):
     name: str
     eta_minutes: int
     status: HospitalStatus
-    department_match: Optional[bool] = None
-    phone: Optional[str] = None
 
 
 class EmergencyStatusResponse(BaseModel):
@@ -67,15 +66,6 @@ class EmergencyStatusResponse(BaseModel):
     unconfirmed_fallback: bool = False
 
 
-# --- GET /confirm/{token} (details query) -----------------------------------
-class HospitalConfirmDetailsResponse(BaseModel):
-    hospital_name: str
-    emergency_type: str
-    blood_group: str
-    eta_minutes: int
-    already_confirmed: bool
-    responded: bool
-    accepted: bool
 # --- POST /confirm/{token} -------------------------------------------------
 class HospitalConfirmRequest(BaseModel):
     accepted: bool
@@ -85,6 +75,21 @@ class HospitalConfirmResponse(BaseModel):
     ok: bool
     hospital_name: str
     already_confirmed: bool
+
+
+# --- GET /confirm/{token} --------------------------------------------------
+class HospitalConfirmDetailsResponse(BaseModel):
+    """What the hospital sees when it opens its one-tap link (before replying)."""
+
+    hospital_name: str
+    emergency_type: str
+    blood_group: str
+    eta_minutes: int
+    # True when another hospital has already taken this patient.
+    already_confirmed: bool
+    # Whether this hospital has already replied, and if so what it chose.
+    responded: bool
+    accepted: bool
 
 
 # --- POST /donor/register --------------------------------------------------

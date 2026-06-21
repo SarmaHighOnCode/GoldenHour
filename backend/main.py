@@ -4,10 +4,13 @@ Thin HTTP layer: each route validates input with a schema, calls one service,
 and returns a schema. All business logic lives in ``services/``; all data access
 lives in ``store.py``. Endpoint shapes match ``API_CONTRACT.md`` exactly.
 """
+
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 
 from config import settings
 from middleware import add_cors_middleware
@@ -18,24 +21,96 @@ from schemas import (
     EmergencyResponse,
     EmergencyStatusResponse,
     HealthResponse,
+    HospitalConfirmDetailsResponse,
     HospitalConfirmRequest,
     HospitalConfirmResponse,
-    HospitalConfirmDetailsResponse,
     SmsInboundRequest,
     SmsInboundResponse,
 )
 from store import get_store
 
 from services import confirm_service, donor_service, emergency_service, sms_service
+from services.rate_limiter import RateLimiter
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)  # suppress URLs (contain API key)
 logger = logging.getLogger("goldenhour")
+
+# Fixed-window per-client limits on the public write endpoints — generous enough
+# for a panicked double-tap, tight enough to blunt a flood. In-process (single
+# node); a multi-node deploy would back these with Redis.
+_emergency_limiter = RateLimiter(max_requests=10, window_seconds=60.0)
+_donor_limiter = RateLimiter(max_requests=10, window_seconds=60.0)
+_confirm_limiter = RateLimiter(max_requests=30, window_seconds=60.0)
+_donor_respond_limiter = RateLimiter(max_requests=20, window_seconds=60.0)
+_RATE_LIMITERS = (
+    _emergency_limiter,
+    _donor_limiter,
+    _confirm_limiter,
+    _donor_respond_limiter,
+)
+
+
+def _client_key(request: Request) -> str:
+    """Best-effort client identity, honoring the proxy's X-Forwarded-For."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limit(limiter: RateLimiter):
+    """Build a dependency that 429s when the caller exceeds ``limiter``."""
+
+    async def _dependency(request: Request) -> None:
+        if not limiter.allow(_client_key(request)):
+            raise HTTPException(
+                status_code=429, detail="Too many requests — please slow down."
+            )
+
+    return _dependency
+
+
+async def _prewarm_osm() -> None:
+    """Fetch hospitals from Overpass at startup for OSM_SEED_COORDS locations.
+
+    Runs as a background task so the API is immediately ready — the pre-warm
+    completes in the background. Only fires in in-memory (demo) mode; Supabase
+    already has real data.
+    """
+    from services.hospital_service import _fetch_hospitals_nearby as _fetch_from_osm
+
+    store = get_store()
+    if not hasattr(store, "bulk_add_hospitals"):
+        return  # Supabase store — skip
+    if not settings.osm_seed_coords:
+        return
+
+    for pair in settings.osm_seed_coords.split(";"):
+        pair = pair.strip()
+        if not pair:
+            continue
+        try:
+            lat_s, lng_s = pair.split(",")
+            lat, lng = float(lat_s.strip()), float(lng_s.strip())
+        except ValueError:
+            logger.warning(
+                "OSM_SEED_COORDS: invalid pair %r — expected 'lat,lng'", pair
+            )
+            continue
+        if store.is_region_fetched(lat, lng):
+            continue
+        hospitals = await _fetch_from_osm(lat, lng)
+        if hospitals:
+            store.bulk_add_hospitals(hospitals)
+            store.mark_region_fetched(lat, lng)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     get_store()  # warm the store (seed in-memory, or connect Supabase)
     logger.info("GoldenHour API ready - %s", settings.summary())
+    asyncio.create_task(_prewarm_osm())
     yield
 
 
@@ -97,7 +172,9 @@ async def root():
     return {"service": settings.app_name, "version": settings.version, "docs": "/docs"}
 
 
-@app.get("/health", response_model=HealthResponse, tags=["meta"], summary="Liveness probe")
+@app.get(
+    "/health", response_model=HealthResponse, tags=["meta"], summary="Liveness probe"
+)
 async def health_check():
     """Liveness — cheap, no I/O (safe for frequent platform health checks)."""
     mode = "supabase" if settings.use_supabase else "in-memory"
@@ -122,6 +199,7 @@ async def readiness_check():
     response_model=EmergencyResponse,
     tags=["emergency"],
     summary="Trigger an emergency",
+    dependencies=[Depends(_rate_limit(_emergency_limiter))],
 )
 async def trigger_emergency(request: EmergencyRequest):
     """Trigger an emergency: rank hospitals, alert donors, send confirmations."""
@@ -153,56 +231,65 @@ async def get_emergency_status(request_id: str):
     "/confirm/{token}",
     response_model=HospitalConfirmDetailsResponse,
     tags=["confirmation"],
-    summary="Get confirmation request details",
+    summary="Confirmation details for the hospital page",
 )
-async def get_confirmation_details(token: str):
-    """Retrieve details of an emergency for the confirmation screen."""
-    store = get_store()
-    conf = store.get_confirmation(token)
-    if conf is None:
+async def get_confirmation(token: str):
+    """The emergency details a hospital sees when it opens its one-tap link."""
+    try:
+        return confirm_service.get_confirmation_details(get_store(), token)
+    except confirm_service.ConfirmationNotFound:
         raise HTTPException(status_code=404, detail="Unknown confirmation token")
-    
-    emergency = store.get_emergency(conf["emergency_id"])
-    if emergency is None:
-        raise HTTPException(status_code=404, detail="Associated emergency not found")
-    
-    # Find the specific hospital ETA from the snapshot
-    eta = 5  # default fallback
-    for card in emergency["hospitals"]:
-        if card["hospital_id"] == conf["hospital_id"]:
-            eta = card["eta_minutes"]
-            break
-    
-    # Check if the emergency has already been taken by another hospital
-    already_taken = store.emergency_is_taken(conf["emergency_id"])
-    
-    # If this hospital already confirmed/declined, show it as responded
-    responded = conf["confirmed"] is not None
-    accepted = conf["confirmed"] is True
-    
-    return HospitalConfirmDetailsResponse(
-        hospital_name=conf["hospital_name"],
-        emergency_type=emergency["emergency_type"],
-        blood_group=emergency["blood_group"],
-        eta_minutes=eta,
-        already_confirmed=already_taken and conf["confirmed"] is not True,
-        responded=responded,
-        accepted=accepted
-    )
+
+
 @app.post(
     "/confirm/{token}",
     response_model=HospitalConfirmResponse,
     tags=["confirmation"],
     summary="Hospital accept / decline",
+    dependencies=[Depends(_rate_limit(_confirm_limiter))],
 )
 async def confirm_hospital(token: str, request: HospitalConfirmRequest):
     """A hospital contact taps Accept (true) or Not Available (false)."""
     try:
-        return confirm_service.handle_confirmation(
-            get_store(), token, request.accepted
-        )
+        return confirm_service.handle_confirmation(get_store(), token, request.accepted)
     except confirm_service.ConfirmationNotFound:
         raise HTTPException(status_code=404, detail="Unknown confirmation token")
+
+
+@app.get(
+    "/donor/respond/{token}",
+    tags=["donors"],
+    summary="Donor one-tap response",
+    dependencies=[Depends(_rate_limit(_donor_respond_limiter))],
+)
+async def donor_respond(token: str):
+    """A donor opens this link (from their alert SMS) to confirm they are heading
+    to donate. Increments donors_responded on the emergency — the results screen
+    picks it up on the next poll. Returns a browser-friendly HTML page."""
+    ok = get_store().record_donor_response(token)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Unknown or already used token")
+    return HTMLResponse(
+        """<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GoldenHour — Thank you!</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:420px;margin:60px auto;padding:0 24px;text-align:center;color:#1a1a1a}
+  h1{font-size:2rem;margin-bottom:8px}
+  p{color:#555;line-height:1.6}
+  .badge{display:inline-block;background:#dc2626;color:#fff;border-radius:999px;padding:6px 18px;font-weight:700;font-size:.9rem;margin-bottom:24px}
+</style>
+</head>
+<body>
+  <div class="badge">🩸 GoldenHour</div>
+  <h1>Thank you!</h1>
+  <p>Your commitment has been recorded. Please head to the nearest hospital's <strong>licensed blood bank</strong> — not the emergency ward.</p>
+  <p>Your donation replaces blood used in the patient's surgery and arrives hours later through proper channels.</p>
+</body>
+</html>"""
+    )
 
 
 @app.post(
@@ -210,6 +297,7 @@ async def confirm_hospital(token: str, request: HospitalConfirmRequest):
     response_model=DonorRegisterResponse,
     tags=["donors"],
     summary="Register a blood donor",
+    dependencies=[Depends(_rate_limit(_donor_limiter))],
 )
 async def register_donor(request: DonorRegisterRequest):
     """Register a replacement-blood donor."""

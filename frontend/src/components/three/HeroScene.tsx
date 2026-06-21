@@ -55,7 +55,10 @@ const CustomPostShader = {
       blur += texture2D(tDiffuse, uv + vec2(1.0, 1.0) * blurScale);
       blur /= 4.0;
       
-      color += max(blur - 0.15, 0.0) * 0.35;
+      color += max(blur - 0.1, 0.0) * 1.2;
+      
+      // Overall brightness boost
+      color.rgb *= 1.4;
       
       // 3. Film Grain
       float noise = random(uv + vec2(sin(uTime * 0.1), cos(uTime * 0.1)));
@@ -128,11 +131,14 @@ export const HeroScene: React.FC<{ className?: string; onLoaded?: () => void }> 
       const heartX = 16 * Math.pow(Math.sin(t), 3);
       const heartY = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
 
-      const scale = 0.08;
-      const noise = 0.45 + Math.random() * 0.55;
-      positions[i3] = heartX * scale * noise + (Math.random() - 0.5) * 0.7;
-      positions[i3 + 1] = heartY * scale * noise + (Math.random() - 0.5) * 0.7 + 0.35;
-      positions[i3 + 2] = (Math.random() - 0.5) * 1.5;
+      const scale = 0.09;
+      // Use square root for more uniform internal distribution, or keep it close to 1 for an outline
+      const noise = Math.pow(Math.random(), 0.3); // Concentrates particles towards the outer edge
+      
+      // Significantly reduce jitter so the heart outline is preserved
+      positions[i3] = heartX * scale * noise + (Math.random() - 0.5) * 0.15;
+      positions[i3 + 1] = heartY * scale * noise + (Math.random() - 0.5) * 0.15 + 0.2;
+      positions[i3 + 2] = (Math.random() - 0.5) * 0.4;
 
       originalPositions[i3] = positions[i3];
       originalPositions[i3 + 1] = positions[i3 + 1];
@@ -192,9 +198,9 @@ export const HeroScene: React.FC<{ className?: string; onLoaded?: () => void }> 
 
           // Soft volumetric alpha falloff
           float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-          alpha *= 0.65;
+          alpha *= 1.3;
 
-          gl_FragColor = vec4(vColor, alpha);
+          gl_FragColor = vec4(vColor * 1.5, alpha);
         }
       `,
       transparent: true,

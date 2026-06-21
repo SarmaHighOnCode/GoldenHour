@@ -7,6 +7,7 @@ pasted into the Supabase SQL editor right after sql/schema.sql. Running it in th
 SQL editor executes as the table owner, so it bypasses RLS — more reliable than
 seeding over the anon key with seed_supabase.py.
 """
+
 from __future__ import annotations
 
 import seed_data

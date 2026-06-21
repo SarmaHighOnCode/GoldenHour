@@ -11,6 +11,7 @@ This is the single most important document for the team. Both the backend (You) 
 - Blood groups are always strings: `"O+"`, `"O-"`, `"A+"`, `"A-"`, `"B+"`, `"B-"`, `"AB+"`, `"AB-"`.
 - `status` for a hospital is always one of: `"pending"`, `"confirmed"`, `"declined"`.
 - Coordinates: `lat` and `lng` are decimal numbers (e.g. `26.9124`, `75.7873` for Jaipur). `lat` must be −90..90 and `lng` −180..180 — out-of-range coordinates (e.g. a failed browser geolocation) are rejected with **422**.
+- The write endpoints (`POST /emergency`, `POST /confirm/{token}`, `POST /donor/register`) are rate-limited per client. Exceeding the limit returns **429** with `{"detail": "Too many requests — please slow down."}`; back off and retry. Normal use never hits it.
 
 ## Endpoint 1 — Trigger an emergency
 `POST /emergency`
@@ -69,6 +70,28 @@ This is the single most important document for the team. Both the backend (You) 
 - `unconfirmed_fallback` (boolean) becomes `true` once ~3 minutes pass with no
   hospital confirmed. Cue for the UI to surface the nearest hospitals with a
   1-tap call button (the phones from the `POST /emergency` response). Safe to ignore.
+
+## Endpoint 3a — Hospital confirmation page details
+`GET /confirm/{token}`
+
+Hit when the hospital contact **opens** their link, so the page can show the real
+emergency details (instead of placeholders).
+
+**Backend returns:**
+```json
+{
+  "hospital_name": "SMS Hospital",
+  "emergency_type": "trauma",
+  "blood_group": "O+",
+  "eta_minutes": 6,
+  "already_confirmed": false,
+  "responded": false,
+  "accepted": false
+}
+```
+- `already_confirmed` is `true` if another hospital already took this patient.
+- `responded` is `true` if this hospital has already replied; `accepted` is its choice.
+- Unknown token → **404**.
 
 ## Endpoint 3 — Hospital taps Accept / Decline
 `POST /confirm/{token}`

@@ -10,6 +10,7 @@ In demo mode there is no Supabase, so the frontend polls
 function signature is identical either way, so wiring real Realtime later is a
 drop-in change.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,4 +30,6 @@ def publish_confirmation(token: str, confirmed: bool) -> None:
         # A SupabaseStore writes confirmed/replied_at; Realtime emits the change.
         logger.info("Realtime: confirmation %s -> confirmed=%s", token, confirmed)
     else:
-        logger.debug("Demo (polling): confirmation %s -> confirmed=%s", token, confirmed)
+        logger.debug(
+            "Demo (polling): confirmation %s -> confirmed=%s", token, confirmed
+        )

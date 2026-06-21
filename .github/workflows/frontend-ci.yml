@@ -24,7 +24,10 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
     - name: Install Dependencies
-      run: cd frontend && npm ci
+      # npm install (not npm ci) tolerates cross-platform optional-dependency
+      # lock drift — the lock is generated across Windows/macOS/Linux dev boxes
+      # and native bindings (Tailwind oxide, rolldown) differ per platform.
+      run: cd frontend && npm install
     - name: Build
       run: cd frontend && npm run build
     # - name: Test
