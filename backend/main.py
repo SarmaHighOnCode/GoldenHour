@@ -172,8 +172,12 @@ async def root():
     return {"service": settings.app_name, "version": settings.version, "docs": "/docs"}
 
 
-@app.get(
-    "/health", response_model=HealthResponse, tags=["meta"], summary="Liveness probe"
+@app.api_route(
+    "/health",
+    methods=["GET", "HEAD"],
+    response_model=HealthResponse,
+    tags=["meta"],
+    summary="Liveness probe",
 )
 async def health_check():
     """Liveness — cheap, no I/O (safe for frequent platform health checks)."""
