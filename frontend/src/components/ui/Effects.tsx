@@ -121,9 +121,21 @@ export const ShimmerSkeleton: React.FC<{ className?: string }> = ({
 /*  4. AnimatedStatusBadge — pending / confirmed / declined           */
 /* ------------------------------------------------------------------ */
 const STATUS_STYLES = {
-  pending: { label: "Pending", wrap: "bg-slate-100 text-slate-500", dot: "bg-slate-400" },
-  confirmed: { label: "Confirmed", wrap: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  declined: { label: "Declined", wrap: "bg-slate-50 text-slate-300", dot: "bg-slate-300" },
+  pending: { 
+    label: "Pending", 
+    wrap: "bg-amber-100 text-amber-900 border border-amber-300 shadow-amber-500/10", 
+    dot: "bg-amber-500 shadow-[0_0_8px_#f59e0b]" 
+  },
+  confirmed: { 
+    label: "Confirmed", 
+    wrap: "bg-emerald-100 text-emerald-950 border border-emerald-300 shadow-emerald-500/10", 
+    dot: "bg-emerald-600 shadow-[0_0_8px_#10b981]" 
+  },
+  declined: { 
+    label: "Declined", 
+    wrap: "bg-slate-100/60 text-slate-400 border border-slate-200/60", 
+    dot: "bg-slate-300" 
+  },
 };
 
 interface AnimatedStatusBadgeProps {
@@ -143,20 +155,20 @@ export const AnimatedStatusBadge: React.FC<AnimatedStatusBadgeProps> = ({ status
         exit={{ scale: 0.8, opacity: 0 }}
         transition={{ type: "spring", stiffness: 500, damping: 25 }}
         className={
-          "inline-flex items-center gap-1.5 rounded-full px-3 py-1 " +
-          "text-xs font-semibold " +
+          "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 " +
+          "text-xs font-black uppercase tracking-wider shadow-sm " +
           s.wrap
         }
       >
-        <span className="relative flex h-1.5 w-1.5">
+        <span className="relative flex h-2 w-2">
           {status === "confirmed" && !reduce && (
             <motion.span
               className="absolute inline-flex h-full w-full rounded-full bg-emerald-400"
-              animate={{ scale: [1, 2.2], opacity: [0.6, 0] }}
+              animate={{ scale: [1, 2.5], opacity: [0.7, 0] }}
               transition={{ repeat: Infinity, duration: 1.6, ease: "easeOut" }}
             />
           )}
-          <span className={"relative inline-flex h-1.5 w-1.5 rounded-full " + s.dot} />
+          <span className={"relative inline-flex h-2 w-2 rounded-full " + s.dot} />
         </span>
         {s.label}
       </motion.span>

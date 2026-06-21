@@ -424,10 +424,10 @@ export default function PatientResultsView() {
                     animateEntrance={false}
                     className={`transition-all duration-500 border ${
                       isConfirmed 
-                        ? 'border-emerald-500/40 bg-emerald-50/10 shadow-[0_4px_20px_rgba(5,150,105,0.08)]' 
+                        ? 'border-emerald-500/40 bg-emerald-50/10 shadow-[0_4px_20px_rgba(5,150,105,0.08)] border-l-4 border-l-emerald-500' 
                         : isDeclined 
-                        ? 'opacity-40 grayscale border-slate-200/50 bg-slate-50/50'
-                        : 'border-slate-200/60'
+                        ? 'opacity-40 grayscale border-slate-200/50 bg-slate-50/50 border-l-4 border-l-slate-400'
+                        : 'border-slate-200/60 border-l-4 border-l-amber-500'
                     }`}
                   >
                     {/* Glowing amber branding highlight on confirmed card */}
