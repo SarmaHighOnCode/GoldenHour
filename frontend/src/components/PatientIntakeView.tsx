@@ -13,9 +13,12 @@ import { api } from '../lib/api';
 import { MapPin, Building2, Droplet, Zap, Phone } from 'lucide-react';
 
 const BACKGROUND_SLIDES = [
-  '/hero_app_mockup.png',
-  '/hero_ambulance.png',
-  '/hero_paramedics.png',
+  '/hero_ambulance_speed.png',   // speeding ambulance with motion blur — red.health style
+  '/hero_hospital_er.png',       // ER entrance at night, wet pavement, HUD overlays
+  '/hero_ambulance.png',         // Indian ambulance on city street
+  '/hero_blood_donor.png',       // blood bag, cinematic dark medical
+  '/hero_paramedics.png',        // paramedics rushing with stretcher
+  '/hero_app_mockup.png',        // hand holding phone showing CALLING 112
 ];
 
 export default function PatientIntakeView() {
@@ -41,7 +44,7 @@ export default function PatientIntakeView() {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % BACKGROUND_SLIDES.length);
-    }, 6000);
+    }, 7000); // 7s — gives each cinematic image time to breathe with Ken Burns
     return () => clearInterval(timer);
   }, []);
 
