@@ -13,7 +13,7 @@ export const Card: React.FC<CardProps> = ({
   className = '',
   ...props
 }) => {
-  const cardStyle = `bg-white rounded-2xl p-5 shadow-layered border border-slate-100/30 overflow-hidden relative ${className}`;
+  const cardStyle = `bg-surface rounded-2xl p-5 shadow-layered border border-slate-100/30 dark:border-white/5 overflow-hidden relative ${className}`;
 
   if (!animateEntrance) {
     return (

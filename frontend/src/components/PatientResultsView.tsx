@@ -17,6 +17,8 @@ interface Hospital {
   department_match: boolean;
   status: 'pending' | 'confirmed' | 'declined';
   phone: string;
+  lat?: number;
+  lng?: number;
 }
 
 export default function PatientResultsView() {
@@ -42,7 +44,34 @@ export default function PatientResultsView() {
   const [rareGroup, setRareGroup] = useState<boolean>(false);
   const [unconfirmedFallback, setUnconfirmedFallback] = useState<boolean>(false);
   const [mockTimeoutSimulation, setMockTimeoutSimulation] = useState<boolean>(false);
+  const [mockConfirmed, setMockConfirmed] = useState<boolean>(false);
   const [secondsRemaining, setSecondsRemaining] = useState(3512); // ~58m 32s
+
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [confirmedHospital, setConfirmedHospital] = useState<Hospital | null>(null);
+  const confirmedIdsRef = useRef<Set<string>>(new Set());
+
+  // Coordinates
+  const [statusLat, setStatusLat] = useState<number | null>(null);
+  const [statusLng, setStatusLng] = useState<number | null>(null);
+
+  // Leaflet Map Refs
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const patientMarkerRef = useRef<L.Marker | null>(null);
+  const hospitalMarkersRef = useRef<Record<string, L.Marker>>({});
+  const routeLinesRef = useRef<Record<string, L.Polyline>>({});
+
+  // Configurable Mock state (defaults to true for reliable demo offline mode)
+  const [isMockMode, setIsMockMode] = useState<boolean>(() => {
+    return localStorage.getItem('goldenhour_mock_mode') !== 'false';
+  });
+
+  const mountTime = useRef<number>(Date.now());
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [prefersReduced, setPrefersReduced] = useState(false);
 
   const isAnyHospitalConfirmed = hospitals.some(h => h.status === 'confirmed');
 
@@ -53,10 +82,6 @@ export default function PatientResultsView() {
     }, 1000);
     return () => clearInterval(timer);
   }, [isAnyHospitalConfirmed, isLoading, hasError]);
-
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
-  const [confirmedHospital, setConfirmedHospital] = useState<Hospital | null>(null);
-  const confirmedIdsRef = useRef<Set<string>>(new Set());
 
   const playConfirmationChime = () => {
     try {
@@ -101,42 +126,69 @@ export default function PatientResultsView() {
     if (newlyConfirmed) {
       if (!confirmedIdsRef.current.has(newlyConfirmed.hospital_id)) {
         confirmedIdsRef.current.add(newlyConfirmed.hospital_id);
+        
+        // 0.0s: Freeze countdown and transition card to top
         setConfirmedHospital(newlyConfirmed);
-        setShowSuccessBanner(true);
-        playConfirmationChime();
-        const timer = setTimeout(() => {
+
+        if (!prefersReduced) {
+          playConfirmationChime();
+        }
+
+        const jaipurHospCoords: Record<string, [number, number]> = {
+          "h1": [26.9036, 75.8147],
+          "h2": [26.8569, 75.8064],
+          "h3": [26.8853, 75.7470],
+        };
+
+        // 0.2s: Stagger Map pan/zoom to frame route
+        const mapTimer = setTimeout(() => {
+          const map = mapInstanceRef.current;
+          if (map) {
+            const patientLat = statusLat ?? 26.9124;
+            const patientLng = statusLng ?? 75.7873;
+            let hLat = newlyConfirmed.lat;
+            let hLng = newlyConfirmed.lng;
+            if (!hLat || !hLng) {
+              const coords = jaipurHospCoords[newlyConfirmed.hospital_id];
+              if (coords) {
+                hLat = coords[0];
+                hLng = coords[1];
+              }
+            }
+
+            if (hLat && hLng && !prefersReduced) {
+              const bounds = L.latLngBounds([[patientLat, patientLng], [hLat, hLng]]);
+              map.fitBounds(bounds, {
+                padding: [60, 60],
+                animate: true,
+                duration: 1.2
+              });
+            }
+          }
+        }, 200);
+
+        // 0.5s: Stagger Success Banner slide-in
+        const bannerTimer = setTimeout(() => {
+          setShowSuccessBanner(true);
+        }, 500);
+
+        // Auto-dismiss Success Banner after 4s (total 4.5s from confirmation)
+        const dismissTimer = setTimeout(() => {
           setShowSuccessBanner(false);
-        }, 6000);
-        return () => clearTimeout(timer);
+        }, 4500);
+
+        return () => {
+          clearTimeout(mapTimer);
+          clearTimeout(bannerTimer);
+          clearTimeout(dismissTimer);
+        };
       }
     } else {
       confirmedIdsRef.current.clear();
       setConfirmedHospital(null);
       setShowSuccessBanner(false);
     }
-  }, [hospitals]);
-
-  // Coordinates
-  const [statusLat, setStatusLat] = useState<number | null>(null);
-  const [statusLng, setStatusLng] = useState<number | null>(null);
-
-  // Leaflet Map Refs
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const patientMarkerRef = useRef<L.Marker | null>(null);
-  const hospitalMarkersRef = useRef<Record<string, L.Marker>>({});
-  const routeLinesRef = useRef<Record<string, L.Polyline>>({});
-
-  // Configurable Mock state (defaults to true for reliable demo offline mode)
-  const [isMockMode, setIsMockMode] = useState<boolean>(() => {
-    return localStorage.getItem('goldenhour_mock_mode') !== 'false';
-  });
-
-  const mountTime = useRef<number>(Date.now());
-  const listContainerRef = useRef<HTMLDivElement>(null);
-
-  const [isMobile, setIsMobile] = useState(false);
-  const [prefersReduced, setPrefersReduced] = useState(false);
+  }, [hospitals, statusLat, statusLng, prefersReduced]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -237,11 +289,11 @@ export default function PatientResultsView() {
             ]
           : [
               { hospital_id: "h1", name: "SMS Hospital", eta_minutes: 6, status: "pending" as const },
-              { hospital_id: "h2", name: "Fortis Escorts Jaipur", eta_minutes: 9, status: isAfter4s ? "confirmed" as const : "pending" as const },
+              { hospital_id: "h2", name: "Fortis Escorts Jaipur", eta_minutes: 9, status: (isAfter4s || mockConfirmed) ? "confirmed" as const : "pending" as const },
               { hospital_id: "h3", name: "Manipal Jaipur", eta_minutes: 12, status: isAfter8s ? "declined" as const : "pending" as const }
             ],
         donors_alerted: 5,
-        donors_responded: isAfter4s && !mockTimeoutSimulation ? 2 : 0,
+        donors_responded: (isAfter4s || mockConfirmed) && !mockTimeoutSimulation ? 2 : 0,
         unconfirmed_fallback: mockTimeoutSimulation
       };
 
@@ -541,7 +593,9 @@ export default function PatientResultsView() {
 
         if (h.status === 'confirmed') {
           markerColor = 'bg-emerald-500 scale-110';
-          ringClass = 'border-emerald-500/40 animate-ping';
+          ringClass = prefersReduced
+            ? 'border-emerald-500/40'
+            : 'border-emerald-500/40 animate-ping';
           statusLabel = 'Confirmed Bed Available';
         } else if (h.status === 'declined') {
           markerColor = 'bg-slate-400 opacity-60';
@@ -550,45 +604,73 @@ export default function PatientResultsView() {
         }
 
         // Draw/Update Polyline Route
-        let polylineOptions: L.PolylineOptions = {};
         if (h.status === 'confirmed') {
-          polylineOptions = {
+          // 1. Background solid line
+          if (routeLinesRef.current[h.hospital_id]) {
+            routeLinesRef.current[h.hospital_id].remove();
+          }
+          const polyline = L.polyline([[patientLat, patientLng], [hLat, hLng]], {
             color: '#10B981',
             weight: 5,
             opacity: 0.9,
             className: prefersReduced ? 'route-line-confirmed-static' : 'route-line-confirmed'
-          };
-        } else if (h.status === 'declined') {
-          polylineOptions = {
-            color: '#94A3B8',
-            weight: 2,
-            opacity: 0.25,
-            className: 'route-line-declined'
-          };
-        } else {
-          polylineOptions = {
-            color: '#F59E0B',
-            weight: 3,
-            opacity: 0.65,
-            dashArray: '8, 8',
-            className: 'route-line-pending'
-          };
-        }
+          }).addTo(map);
+          routeLinesRef.current[h.hospital_id] = polyline;
 
-        // Recreate the polyline on status change to trigger CSS animation
-        if (routeLinesRef.current[h.hospital_id]) {
-          routeLinesRef.current[h.hospital_id].remove();
+          // 2. Animated traveling pulse overlay line
+          const pulseKey = `${h.hospital_id}_pulse`;
+          if (routeLinesRef.current[pulseKey]) {
+            routeLinesRef.current[pulseKey].remove();
+          }
+          if (!prefersReduced) {
+            const pulsePolyline = L.polyline([[patientLat, patientLng], [hLat, hLng]], {
+              color: '#34D399',
+              weight: 5,
+              opacity: 0.95,
+              dashArray: '10, 15',
+              className: 'route-line-flow'
+            }).addTo(map);
+            routeLinesRef.current[pulseKey] = pulsePolyline;
+          }
+        } else {
+          // Clean up old pulse lines if present
+          const pulseKey = `${h.hospital_id}_pulse`;
+          if (routeLinesRef.current[pulseKey]) {
+            routeLinesRef.current[pulseKey].remove();
+            delete routeLinesRef.current[pulseKey];
+          }
+
+          let polylineOptions: L.PolylineOptions = {};
+          if (h.status === 'declined') {
+            polylineOptions = {
+              color: '#94A3B8',
+              weight: 2,
+              opacity: 0.25,
+              className: 'route-line-declined'
+            };
+          } else {
+            polylineOptions = {
+              color: '#F59E0B',
+              weight: 3,
+              opacity: 0.65,
+              dashArray: '8, 8',
+              className: 'route-line-pending'
+            };
+          }
+
+          if (routeLinesRef.current[h.hospital_id]) {
+            routeLinesRef.current[h.hospital_id].remove();
+          }
+          const polyline = L.polyline([[patientLat, patientLng], [hLat, hLng]], polylineOptions).addTo(map);
+          routeLinesRef.current[h.hospital_id] = polyline;
         }
-        
-        const polyline = L.polyline([[patientLat, patientLng], [hLat, hLng]], polylineOptions).addTo(map);
-        routeLinesRef.current[h.hospital_id] = polyline;
 
         const hospitalIcon = L.divIcon({
           className: 'custom-hospital-icon',
           html: `
             <div class="relative flex items-center justify-center">
               <div class="absolute w-8 h-8 rounded-full border ${ringClass}"></div>
-              <div class="w-5 h-5 rounded-full ${markerColor} border-2 border-white shadow-md flex items-center justify-center text-white text-[9px] font-black leading-none">
+              <div class="w-5 h-5 rounded-full ${markerColor} border-2 border-white shadow-md flex items-center justify-center text-white text-[9px] font-black leading-none ${h.status === 'confirmed' && !prefersReduced ? 'marker-confirmed-bounce' : ''}">
                 H
               </div>
             </div>
@@ -617,6 +699,49 @@ export default function PatientResultsView() {
     });
   }, [statusLat, statusLng, hospitals, prefersReduced]);
 
+  const handleShowDirections = (hospital: Hospital) => {
+    const map = mapInstanceRef.current;
+    if (map) {
+      const patientLat = statusLat ?? 26.9124;
+      const patientLng = statusLng ?? 75.7873;
+      
+      let hLat = hospital.lat;
+      let hLng = hospital.lng;
+      
+      const jaipurHospCoords: Record<string, [number, number]> = {
+        "h1": [26.9036, 75.8147],
+        "h2": [26.8569, 75.8064],
+        "h3": [26.8853, 75.7470],
+      };
+      
+      if (!hLat || !hLng) {
+        const coords = jaipurHospCoords[hospital.hospital_id];
+        if (coords) {
+          hLat = coords[0];
+          hLng = coords[1];
+        }
+      }
+      
+      if (hLat && hLng) {
+        const bounds = L.latLngBounds([[patientLat, patientLng], [hLat, hLng]]);
+        map.fitBounds(bounds, {
+          padding: [80, 80],
+          animate: !prefersReduced,
+          duration: prefersReduced ? 0 : 1.0
+        });
+
+        const marker = hospitalMarkersRef.current[hospital.hospital_id];
+        if (marker) {
+          marker.openPopup();
+        }
+      }
+    }
+
+    if (isMobile && mapRef.current) {
+      mapRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
@@ -624,34 +749,64 @@ export default function PatientResultsView() {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 pb-28 select-none">
+    <div className="w-full max-w-7xl mx-auto px-4 pt-6 pb-28 select-none">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8 items-start">
         
-        {/* Left Column: Interactive Map */}
-        <div className="w-full h-[350px] lg:h-[calc(100vh-140px)] rounded-3xl overflow-hidden border border-slate-200 shadow-layered relative lg:sticky lg:top-24 bg-slate-900/10 z-10">
-          <div ref={mapRef} className="w-full h-full" />
-          
-          {/* Overlay branding banner on map */}
-          <div className="absolute top-4 left-4 z-[500] pointer-events-none">
-            <div className="bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/5 flex items-center gap-2 shadow-lg">
-              <span className="w-2.5 h-2.5 rounded-full bg-emergency animate-pulse" />
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">Live SOS Map</span>
+        {/* Left Column: Interactive Map & Donor Panel Console */}
+        <div className="w-full space-y-4 lg:sticky lg:top-[100px] z-10">
+          <div className="w-full h-[350px] lg:h-[calc(100vh-230px)] rounded-3xl overflow-hidden border border-white/10 shadow-layered relative bg-slate-900/10">
+            <div ref={mapRef} className="w-full h-full" />
+            
+            {/* Overlay branding banner on map */}
+            <div className="absolute top-4 left-4 z-[500] pointer-events-none">
+              <div className="bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/5 flex items-center gap-2 shadow-lg">
+                <span className="w-2.5 h-2.5 rounded-full bg-emergency animate-pulse" />
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">Live SOS Map</span>
+              </div>
             </div>
           </div>
+
+          {/* Donor Panel */}
+          <GlassCard className="flex items-center justify-between !p-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-emergency font-extrabold text-sm flex items-center gap-1.5 leading-none">
+                <svg className="w-4.5 h-4.5 text-emergency animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                </svg>
+                <CountUp to={donorsAlerted} className="font-extrabold" /> donors alerted nearby
+              </span>
+              <span className="text-[11px] text-dark-ink-muted font-semibold pl-6">
+                {donorsResponded > 0 ? (
+                  <>
+                    <CountUp to={donorsResponded} className="font-bold" /> responded
+                  </>
+                ) : (
+                  'Waiting for responses'
+                )}
+              </span>
+            </div>
+
+            {/* Blood drop placeholder badge */}
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
+              <svg className="w-5 h-5 text-rose-500 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+              </svg>
+            </div>
+          </GlassCard>
         </div>
 
         {/* Right Column: Hospital list & Status */}
         <div className="w-full space-y-6">
           {/* Top Status Header with Golden Hour Progress Ring */}
-          <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-2xl p-4 border border-slate-200/50 shadow-layered flex items-center justify-between">
+          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 shadow-layered flex items-center justify-between">
             <div className="flex items-center gap-3.5">
               {/* SVG Countdown Ring */}
               <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 40 40">
                   <circle
-                    className="text-slate-100"
+                    className="text-white/5"
                     strokeWidth="3.5"
-                    stroke="#E2E8F0"
+                    stroke="rgba(255, 255, 255, 0.1)"
                     fill="transparent"
                     r="16"
                     cx="20"
@@ -695,7 +850,7 @@ export default function PatientResultsView() {
               <div>
                 <h3 className="font-extrabold text-sm text-ink flex items-center gap-2">
                   {isAnyHospitalConfirmed ? (
-                    <span className="text-emerald-600">Hospital Confirmed</span>
+                    <span className="text-emerald-400">Hospital Confirmed</span>
                   ) : (
                     <span>Golden Hour Countdown</span>
                   )}
@@ -705,7 +860,7 @@ export default function PatientResultsView() {
                     "Emergency dispatch established"
                   ) : (
                     <>
-                      Time remaining: <span className="font-mono font-bold text-amber-600">{formatTime(secondsRemaining)}</span>
+                      Time remaining: <span className="font-mono font-bold text-goldenhour">{formatTime(secondsRemaining)}</span>
                     </>
                   )}
                 </p>
@@ -715,27 +870,50 @@ export default function PatientResultsView() {
             <div className="flex items-center gap-2">
               <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border transition-colors duration-500 ${
                 isAnyHospitalConfirmed 
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                  : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                  : 'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'
               }`}>
                 {isAnyHospitalConfirmed ? 'SECURED' : 'MONITORING'}
               </span>
 
               {import.meta.env.DEV && isMockMode && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMockTimeoutSimulation(!mockTimeoutSimulation);
-                    mountTime.current = Date.now(); // reset mock timer
-                  }}
-                  className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
-                    mockTimeoutSimulation 
-                      ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200' 
-                      : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
-                  }`}
-                >
-                  TIMEOUT: {mockTimeoutSimulation ? 'ON' : 'OFF'}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMockTimeoutSimulation(!mockTimeoutSimulation);
+                      mountTime.current = Date.now(); // reset mock timer
+                    }}
+                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
+                      mockTimeoutSimulation 
+                        ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30' 
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    TIMEOUT: {mockTimeoutSimulation ? 'ON' : 'OFF'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (mockConfirmed) {
+                        setMockConfirmed(false);
+                        mountTime.current = Date.now();
+                        setTimeout(() => pollStatus(id || ''), 50);
+                      } else {
+                        setMockConfirmed(true);
+                        setTimeout(() => pollStatus(id || ''), 50);
+                      }
+                    }}
+                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-colors cursor-pointer ${
+                      mockConfirmed 
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' 
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    {mockConfirmed ? 'CONFIRM: ON' : 'SIMULATE CONFIRM'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -746,13 +924,13 @@ export default function PatientResultsView() {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-amber-50 border border-amber-200/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm"
+                className="bg-goldenhour/10 border border-goldenhour/20 rounded-2xl p-4 flex items-start gap-3 shadow-sm"
               >
                 <span className="text-xl flex-shrink-0" role="img" aria-label="Warning">⚠️</span>
                 <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Rare Blood Group Requested</h4>
-                  <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                    Compatible donors for blood group <span className="font-extrabold text-amber-900">{bloodGroup || 'Rh-negative'}</span> are scarce. Alerts have been broadcast, but supply may be limited.
+                  <h4 className="text-xs font-bold text-goldenhour uppercase tracking-wider">Rare Blood Group Requested</h4>
+                  <p className="text-[11px] text-goldenhour/80 leading-relaxed font-medium">
+                    Compatible donors for blood group <span className="font-extrabold text-goldenhour">{bloodGroup || 'Rh-negative'}</span> are scarce. Alerts have been broadcast, but supply may be limited.
                   </p>
                 </div>
               </motion.div>
@@ -762,12 +940,12 @@ export default function PatientResultsView() {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-red-50 border border-red-200/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm animate-pulse-glow"
+                className="bg-emergency/10 border border-emergency/20 rounded-2xl p-4 flex items-start gap-3 shadow-sm animate-pulse-glow"
               >
                 <span className="text-xl flex-shrink-0" role="img" aria-label="Alarm">🚨</span>
                 <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-red-800 uppercase tracking-wider">Response Timeout Fallback</h4>
-                  <p className="text-[11px] text-red-700 leading-relaxed font-medium">
+                  <h4 className="text-xs font-bold text-emergency uppercase tracking-wider">Response Timeout Fallback</h4>
+                  <p className="text-[11px] text-emergency/80 leading-relaxed font-medium">
                     No hospital has confirmed the request yet. We strongly recommend contacting the nearest hospital directly using the call links below.
                   </p>
                 </div>
@@ -789,7 +967,7 @@ export default function PatientResultsView() {
                   {[1, 2, 3].map((idx) => (
                     <div 
                       key={idx} 
-                      className="bg-white rounded-2xl p-5 shadow-layered border border-slate-100/50 space-y-4"
+                      className="bg-surface dark:bg-dark-surface rounded-2xl p-5 shadow-layered border border-slate-100/50 dark:border-white/5 space-y-4"
                     >
                       <div className="flex justify-between items-start">
                         <div className="space-y-2 w-2/3">
@@ -808,9 +986,9 @@ export default function PatientResultsView() {
                   key="error-state"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-red-50/50 border border-red-200/40 rounded-2xl p-6 text-center space-y-3"
+                  className="bg-emergency/5 border border-emergency/10 rounded-2xl p-6 text-center space-y-3"
                 >
-                  <div className="w-12 h-12 rounded-full bg-red-100 text-emergency flex items-center justify-center text-xl font-black mx-auto">
+                  <div className="w-12 h-12 rounded-full bg-emergency/25 text-emergency flex items-center justify-center text-xl font-black mx-auto">
                     !
                   </div>
                   <h3 className="font-extrabold text-ink text-lg leading-tight">Connection Issue</h3>
@@ -820,7 +998,7 @@ export default function PatientResultsView() {
                   <button
                     type="button"
                     onClick={() => pollStatus(id || '')}
-                    className="text-xs font-black uppercase tracking-wider text-rose-600 hover:text-rose-700 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/25 rounded px-2 py-1 cursor-pointer"
+                    className="text-xs font-black uppercase tracking-wider text-emergency hover:text-emergency-pressed underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/25 rounded px-2 py-1 cursor-pointer"
                   >
                     Retry Connection
                   </button>
@@ -830,9 +1008,9 @@ export default function PatientResultsView() {
                   key="empty-state"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-slate-50 border border-slate-200/50 rounded-2xl p-8 text-center space-y-3"
+                  className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center space-y-3"
                 >
-                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xl font-bold mx-auto">
+                  <div className="w-12 h-12 rounded-full bg-white/5 text-slate-400 flex items-center justify-center text-xl font-bold mx-auto">
                     ?
                   </div>
                   <h3 className="font-extrabold text-ink text-lg leading-tight">No Responders Found</h3>
@@ -873,8 +1051,8 @@ export default function PatientResultsView() {
                                 ? 'border-emerald-500/40 bg-emerald-50/10 shadow-[0_4px_20px_rgba(5,150,105,0.08)] border-l-4 border-l-emerald-500' 
                                 : 'confirmed-card-sweep border-l-4 border-l-emerald-500')
                             : isDeclined 
-                            ? 'opacity-40 grayscale border-slate-200/50 bg-slate-50/50 border-l-4 border-l-slate-400'
-                            : 'border-slate-200/60 border-l-4 border-l-amber-500'
+                            ? 'opacity-40 grayscale border-white/5 bg-white/[0.02] border-l-4 border-l-slate-400'
+                            : 'border-white/10 border-l-4 border-l-amber-500'
                         }`}
                       >
                         {/* Glowing amber branding highlight on confirmed card */}
@@ -899,11 +1077,11 @@ export default function PatientResultsView() {
                             </h3>
                             
                             {h.department_match ? (
-                              <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-500/10">
+                              <span className="inline-flex items-center text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                                 Dept ✓ matched
                               </span>
                             ) : (
-                              <span className="inline-flex items-center text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                              <span className="inline-flex items-center text-[11px] font-medium text-slate-400 bg-white/5 px-2 py-0.5 rounded">
                                 Dept mismatch
                               </span>
                             )}
@@ -914,7 +1092,7 @@ export default function PatientResultsView() {
 
                         {/* Badging: ETA */}
                         <div className="flex items-center gap-2 mb-4">
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#F59E0B] bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-500/10">
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-goldenhour bg-goldenhour/10 px-2.5 py-1 rounded-lg border border-goldenhour/20">
                             <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -922,21 +1100,44 @@ export default function PatientResultsView() {
                           </span>
                         </div>
 
-                        {/* 1-tap Call Button */}
-                        <a
-                          href={`tel:${h.phone}`}
-                          aria-label={`Call ${h.name} dispatch`}
-                          className={`flex items-center justify-center gap-2 w-full h-14 rounded-xl font-extrabold text-sm tracking-wider uppercase transition-all duration-300 border focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/20 active:scale-[0.98] ${
-                            isConfirmed
-                              ? 'bg-success hover:bg-emerald-700 text-white border-transparent shadow-[0_4px_15px_rgba(5,150,105,0.25)] focus-visible:ring-emerald-500/30'
-                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 active:bg-slate-100'
-                          }`}
-                        >
-                          <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                          {isConfirmed ? 'Establish Call Link' : 'Call Dispatch'}
-                        </a>
+                        {/* 1-tap Actions: Call & Directions */}
+                        <div className="flex gap-2.5 w-full mt-4">
+                          <a
+                            href={`tel:${h.phone}`}
+                            aria-label={`Call ${h.name} dispatch`}
+                            className={`flex-[3] flex items-center justify-center gap-1.5 h-13 rounded-xl font-bold text-xs tracking-wider transition-all duration-300 border focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/20 active:scale-[0.98] ${
+                              isConfirmed
+                                ? 'bg-success hover:bg-emerald-700 text-white border-transparent shadow-[0_4px_15px_rgba(5,150,105,0.25)] focus-visible:ring-emerald-500/30'
+                                : isDeclined
+                                ? 'bg-white/5 text-slate-500 border-white/5 pointer-events-none'
+                                : 'bg-white/5 hover:bg-white/10 text-white border-white/10 active:bg-white/15'
+                            }`}
+                          >
+                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <span className="truncate">{isConfirmed ? `Call ${h.name}` : 'Call dispatch'}</span>
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() => handleShowDirections(h)}
+                            disabled={isDeclined}
+                            aria-label={`View directions to ${h.name}`}
+                            className={`flex-[2] flex items-center justify-center gap-1.5 h-13 rounded-xl font-bold text-xs tracking-wider transition-all duration-300 border focus:outline-none active:scale-[0.98] ${
+                              isConfirmed
+                                ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:bg-emerald-500/25 focus-visible:ring-emerald-500/30'
+                                : isDeclined
+                                ? 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed opacity-50'
+                                : 'bg-white/5 hover:bg-white/10 text-white border-white/10 active:bg-white/15 focus-visible:ring-white/10'
+                            }`}
+                          >
+                            <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            <span>Directions</span>
+                          </button>
+                        </div>
                       </Card>
                     </motion.div>
                   );
@@ -947,37 +1148,6 @@ export default function PatientResultsView() {
         </div> {/* Right Column */}
       </div> {/* Grid */}
 
-      {/* Pinned Bottom Donor Panel */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 z-40">
-        <div className="max-w-md mx-auto">
-          <GlassCard className="flex items-center justify-between !p-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-emergency font-extrabold text-sm flex items-center gap-1.5 leading-none">
-                <svg className="w-4.5 h-4.5 text-emergency animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                </svg>
-                <CountUp to={donorsAlerted} className="font-extrabold" /> donors alerted nearby
-              </span>
-              <span className="text-[11px] text-[#64748B] font-semibold pl-6">
-                {donorsResponded > 0 ? (
-                  <>
-                    <CountUp to={donorsResponded} className="font-bold" /> responded
-                  </>
-                ) : (
-                  'Waiting for responses'
-                )}
-              </span>
-            </div>
-
-            {/* Blood drop placeholder badge */}
-            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
-              <svg className="w-5 h-5 text-rose-500 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-              </svg>
-            </div>
-          </GlassCard>
-        </div>
-      </div>
 
       {/* Success Banner */}
       <AnimatePresence>

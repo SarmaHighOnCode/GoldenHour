@@ -31,10 +31,11 @@ function AppContent({ prefersReduced }: { prefersReduced: boolean }) {
   const location = useLocation();
   const isHome = location.pathname === '/';
   const isRegister = location.pathname === '/register';
+  const isResults = location.pathname.startsWith('/results/');
   const isHospitalConfirm = location.pathname.startsWith('/confirm/');
 
-  // Dark theme for home and donor registration
-  const theme = isHome || isRegister ? 'dark' : 'light';
+  // Dark theme for home, donor registration, and results page
+  const theme = isHome || isRegister || isResults ? 'dark' : 'light';
 
   // Sync Lenis with GSAP ScrollTrigger
   const lenis = useLenis();
@@ -63,7 +64,7 @@ function AppContent({ prefersReduced }: { prefersReduced: boolean }) {
     <div
       data-theme={theme}
       className={`min-h-screen flex flex-col antialiased relative selection:bg-goldenhour/25 transition-colors duration-500 ${
-        (isHome || isRegister)
+        (isHome || isRegister || isResults)
           ? 'bg-dark-bg text-dark-ink'
           : 'bg-bg-warm text-ink'
       }`}

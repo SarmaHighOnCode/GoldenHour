@@ -100,7 +100,7 @@ export const ShimmerSkeleton: React.FC<{ className?: string }> = ({
 }) => {
   const reduce = useReducedMotion();
   return (
-    <div className={"relative overflow-hidden bg-slate-200/70 " + className}>
+    <div className={"relative overflow-hidden bg-slate-200/70 dark:bg-white/5 " + className}>
       {!reduce && (
         <motion.div
           className="absolute inset-0"

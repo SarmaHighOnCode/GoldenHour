@@ -1,24 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
 import { gsap, ScrollTrigger } from '../lib/gsap-setup';
-import { HeroScene } from './three/HeroScene';
 import { CountUp } from './motion/CountUp';
 import { TextReveal } from './motion/TextReveal';
-import { Card } from './ui/Card';
+import { EkgSpine } from './motion/EkgSpine';
+import { HeroCinematicCarousel } from './motion/HeroCinematicCarousel';
+import { HowItWorksCinematic } from './motion/HowItWorksCinematic';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { api } from '../lib/api';
-import { MapPin, Building2, Droplet, Zap, Phone } from 'lucide-react';
+import { Droplet, Zap, Phone } from 'lucide-react';
 
-const BACKGROUND_SLIDES = [
-  '/hero_app_mockup.png',        // hand holding phone showing CALLING 112
-  '/hero_ambulance_speed.png',   // speeding ambulance with motion blur — red.health style
-  '/hero_hospital_er.png',       // ER entrance at night, wet pavement, HUD overlays
-  '/hero_ambulance.png',         // Indian ambulance on city street
-  '/hero_blood_donor.png',       // blood bag, cinematic dark medical
-  '/hero_paramedics.png',        // paramedics rushing with stretcher
-];
+// Cinematic slides are now managed inside HeroCinematicCarousel (SOS always first).
 
 export default function PatientIntakeView() {
   const navigate = useNavigate();
@@ -35,7 +29,6 @@ export default function PatientIntakeView() {
   // Form submission states
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSceneLoaded, setIsSceneLoaded] = useState<boolean>(false);
 
   // Dispatch transition states
   const [dispatchState, setDispatchState] = useState<'idle' | 'dispatching'>('idle');
@@ -45,43 +38,18 @@ export default function PatientIntakeView() {
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
   // Ref to hold resolved request_id so it can be navigated to after animation finishes
   const resolvedRequestIdRef = useRef<string | null>(null);
 
-  // Check prefers-reduced-motion
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReduced(mediaQuery.matches);
-    const handler = (e: MediaQueryListEvent) => setPrefersReduced(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
-
-  // Background slide carousel
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % BACKGROUND_SLIDES.length);
-    }, 7000); // 7s — gives each cinematic image time to breathe with Ken Burns
-    return () => clearInterval(timer);
-  }, []);
+  // Carousel state now lives inside HeroCinematicCarousel component.
 
   // Refs for GSAP animations
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const heroSubRef = useRef<HTMLParagraphElement>(null);
   const scrollHintRef = useRef<HTMLDivElement>(null);
-  const horizontalRef = useRef<HTMLDivElement>(null);
-  const horizontalInnerRef = useRef<HTMLDivElement>(null);
+  const intakeSectionRef = useRef<HTMLElement>(null);
+  const intakeLeftRef = useRef<HTMLDivElement>(null);
+  const intakeRightRef = useRef<HTMLDivElement>(null);
 
   // Parallax scroll tracking
   const { scrollYProgress } = useScroll({
@@ -165,23 +133,23 @@ export default function PatientIntakeView() {
       return;
     }
 
-    // Standard motion: orchestrate step-by-step checkmarks sequence (2.5s total)
-    // Step 1 checkmark: 800ms
+    // Standard motion: orchestrate step-by-step checkmarks sequence (1.0s total)
+    // Step 1 checkmark: 300ms
     activeTimers.push(setTimeout(() => {
       setCurrentStep(1);
-    }, 800));
+    }, 300));
 
-    // Step 2 checkmark: 1600ms
+    // Step 2 checkmark: 600ms
     activeTimers.push(setTimeout(() => {
       setCurrentStep(2);
-    }, 1600));
+    }, 600));
 
-    // Step 3 checkmark: 2400ms
+    // Step 3 checkmark: 900ms
     activeTimers.push(setTimeout(() => {
       setCurrentStep(3);
-    }, 2400));
+    }, 900));
 
-    // Sequence completion check: 2500ms
+    // Sequence completion check: 1000ms
     activeTimers.push(setTimeout(async () => {
       setAnimationFinished(true);
       
@@ -196,7 +164,7 @@ export default function PatientIntakeView() {
         setDispatchState('idle');
         setIsSubmitting(false);
       }
-    }, 2500));
+    }, 1000));
 
     // Watch API call concurrently to handle early failures
     apiCallPromise.catch((err: any) => {
@@ -230,31 +198,34 @@ export default function PatientIntakeView() {
     { label: 'Broadcasting to donors in range', showAtStep: 2 },
   ];
 
-  // === GSAP ANIMATIONS ===
-
-  // Hero staggered title reveal
+  // Hero staggered title reveal — re-runs when shouldRenderGlobe settles so the
+  // animation fires AFTER the Suspense swap (which would otherwise trigger ctx.revert).
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      // Title letters stagger
+    // Skip animation if reduced motion is preferred — chars are visible by default,
+    // just ensure no inline transforms are applied.
+    if (prefersReduced) {
       if (heroTitleRef.current) {
-        const text = heroTitleRef.current.textContent || '';
-        heroTitleRef.current.innerHTML = '';
-        text.split('').forEach((char, i) => {
-          const span = document.createElement('span');
-          span.textContent = char === ' ' ? '\u00A0' : char;
-          span.style.display = 'inline-block';
-          span.style.opacity = '0';
-          span.style.transform = 'translateY(100%)';
-          heroTitleRef.current!.appendChild(span);
-        });
+        const chars = heroTitleRef.current.querySelectorAll<HTMLElement>('.char-span');
+        chars.forEach(c => { c.style.transform = 'none'; });
+      }
+      if (heroSubRef.current) heroSubRef.current.style.opacity = '1';
+      if (scrollHintRef.current) scrollHintRef.current.style.opacity = '1';
+      return;
+    }
 
-        gsap.to(heroTitleRef.current.children, {
-          opacity: 1,
+    const ctx = gsap.context(() => {
+      // Title letters stagger — use y transform reveal (word-spans have overflow:hidden)
+      // so chars slide up into view without needing opacity at all,
+      // preserving the parent text-gradient clip.
+      if (heroTitleRef.current) {
+        const chars = heroTitleRef.current.querySelectorAll('.char-span');
+        gsap.set(chars, { y: '110%' });
+        gsap.to(chars, {
           y: 0,
-          duration: 0.8,
+          duration: 0.7,
           stagger: 0.03,
           ease: 'power3.out',
-          delay: 0.3,
+          delay: 0.2,
         });
       }
 
@@ -276,34 +247,66 @@ export default function PatientIntakeView() {
     });
 
     return () => ctx.revert();
-  }, []);
+  // Re-runs when prefersReduced changes so animation respects motion preference.
+  }, [prefersReduced]);
 
-  // Horizontal scroll section
+  // Intake section scroll-driven entrance animation (3D tilt reveal)
   useEffect(() => {
-    const section = horizontalRef.current;
-    const inner = horizontalInnerRef.current;
-    if (!section || !inner) return;
+    if (prefersReduced) return;
+
+    const section = intakeSectionRef.current;
+    const leftEl = intakeLeftRef.current;
+    const rightEl = intakeRightRef.current;
+
+    if (!section || !leftEl || !rightEl) return;
+
+    // Set perspective on the parent container to enable 3D transforms
+    gsap.set(section, { perspective: 1000 });
 
     const ctx = gsap.context(() => {
-      const cards = inner.children;
-      const totalWidth = inner.scrollWidth - section.offsetWidth;
+      // Left description column: slide in from left and fade in
+      gsap.fromTo(leftEl,
+        { opacity: 0, x: -50 },
+        {
+          opacity: 1,
+          x: 0,
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 85%',
+            end: 'top 45%',
+            scrub: 1,
+          }
+        }
+      );
 
-      gsap.to(inner, {
-        x: -totalWidth,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: section,
-          start: 'top top',
-          end: () => `+=${totalWidth}`,
-          scrub: 1,
-          pin: true,
-          anticipatePin: 1,
+      // Right dispatch console: 3D rotate entry, scale up, and slide up
+      gsap.fromTo(rightEl,
+        {
+          opacity: 0,
+          y: 100,
+          scale: 0.93,
+          transformOrigin: '50% 50%',
+          rotationX: 12,
+          rotationY: -8,
         },
-      });
-    });
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          rotationX: 0,
+          rotationY: 0,
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 85%',
+            end: 'top 40%',
+            scrub: 1,
+          }
+        }
+      );
+    }, section);
 
     return () => ctx.revert();
-  }, []);
+  }, [prefersReduced]);
 
   const containerVariants = {
     hidden: {},
@@ -328,50 +331,28 @@ export default function PatientIntakeView() {
 
   return (
     <div className="w-full">
-      
+      <EkgSpine />
 
 
       {/* =============================================
           SECTION 1: HERO — Full screen dark canvas
           ============================================= */}
       <section ref={heroRef} className="min-h-[80vh] flex items-center justify-center glow-amber glow-crimson relative overflow-hidden pt-20 pb-12 md:pt-28 md:pb-16">
-        {/* Background Slide Carousel with Ken Burns Motion Effect */}
+        {/* Background Canvas: Cinematic carousel (always) + optional 3D Globe overlay on desktop */}
+        {/* Carousel always visible — globe renders on top for desktop/WebGL capable devices */}
         <motion.div style={{ y }} className="absolute inset-0 z-0">
-          <AnimatePresence mode="popLayout">
-            <motion.div
-              key={currentSlide}
-              initial={{ scale: 1.12, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 2.4, ease: "easeInOut" }}
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: `url(${BACKGROUND_SLIDES[currentSlide]})` }}
-            />
-          </AnimatePresence>
-
-          {/* Layer 1: Light overall darken — image stays dramatic but readable */}
-          <div className="absolute inset-0 z-[1] bg-[#0A0A0F]/40" />
-
-          {/* Layer 2: Top vignette — keeps nav area legible */}
-          <div className="absolute inset-0 z-[2] bg-gradient-to-b from-[#0A0A0F]/80 via-transparent to-transparent" />
-
-          {/* Layer 3: Bottom fade — blends cleanly into next section */}
-          <div className="absolute inset-0 z-[2] bg-gradient-to-t from-[#0A0A0F] via-[#0A0A0F]/20 to-transparent" />
-
-          {/* Layer 4: Centre text zone darken — ensures headline is always legible */}
-          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 45%, rgba(10,10,15,0.55) 0%, transparent 100%)' }} />
-
-          {/* Layer 5: Crimson ambient glow — signature GoldenHour accent */}
-          <div className="absolute inset-0 z-[3]" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 80%, rgba(220,38,38,0.18) 0%, transparent 70%)' }} />
-
-          {/* Smooth scroll-to-black fade overlay */}
-          <motion.div style={{ opacity: darkenOpacity }} className="absolute inset-0 z-[4] bg-[#0A0A0F] pointer-events-none" />
+          <HeroCinematicCarousel />
         </motion.div>
 
-        {/* Three.js particle canvas with shader compile feedback callback overlay */}
-        <div className="absolute inset-0 z-[2] opacity-40 pointer-events-none">
-          <HeroScene onLoaded={() => setIsSceneLoaded(true)} />
-        </div>
+
+
+        {/* Dark Ambient Overlays (Layer 1-5 + scroll fade) - Always rendered to keep copy legible */}
+        <div className="absolute inset-0 z-[1] bg-[#0A0A0F]/45 pointer-events-none" />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-b from-[#0A0A0F]/80 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-t from-[#0A0A0F] via-[#0A0A0F]/20 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 z-[3] pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 45%, rgba(10,10,15,0.6) 0%, transparent 100%)' }} />
+        <div className="absolute inset-0 z-[3] pointer-events-none" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 80%, rgba(220,38,38,0.18) 0%, transparent 70%)' }} />
+        <motion.div style={{ opacity: darkenOpacity }} className="absolute inset-0 z-[4] bg-[#0A0A0F] pointer-events-none" />
 
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto space-y-6">
           {/* Giant display title */}
@@ -380,7 +361,25 @@ export default function PatientIntakeView() {
             className="text-display-xl text-gradient overflow-hidden"
             style={{ filter: 'drop-shadow(0 2px 20px rgba(0,0,0,0.8))' }}
           >
-            Every Second Counts
+            {(() => {
+              const text = "Every Second Counts";
+              const words = text.split(' ');
+              return words.map((word, wordIdx) => (
+                <span key={wordIdx} className="word-span inline-block" style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                  {word.split('').map((char, charIdx) => (
+                    <span
+                      key={charIdx}
+                      className="char-span inline-block"
+                    >
+                      {char}
+                    </span>
+                  ))}
+                  {wordIdx < words.length - 1 && (
+                    <span className="inline-block">&nbsp;</span>
+                  )}
+                </span>
+              ));
+            })()}
           </h1>
 
           {/* Subtitle */}
@@ -429,7 +428,7 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 2: PROBLEM STATEMENT — Text reveals
           ============================================= */}
-      <section className="py-12 md:py-16 px-6 glow-crimson relative overflow-hidden flex items-center justify-center">
+      <section id="problem-statement" className="py-12 md:py-16 px-6 glow-crimson relative overflow-hidden flex items-center justify-center">
         <div className="max-w-4xl mx-auto space-y-8">
           <TextReveal
             as="h2"
@@ -456,15 +455,12 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 3: INTAKE CONSOLE — Pinned booking form
           ============================================= */}
-      <section id="intake" className="py-12 md:py-16 px-6 relative glow-amber">
+      <section id="intake" ref={intakeSectionRef} className="py-12 md:py-16 px-6 relative glow-amber">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
           {/* Left: Descriptive text */}
-          <motion.div
-            initial={prefersReduced ? {} : { opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-10% 0px" }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+          <div
+            ref={intakeLeftRef}
             className="space-y-6"
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-emergency/10 border border-emergency/20 rounded-full">
@@ -491,14 +487,11 @@ export default function PatientIntakeView() {
                 <span className="text-xs font-semibold">Donor Alert</span>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Right: Intake Form Card */}
-          <motion.div
-            initial={prefersReduced ? {} : { opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-10% 0px" }}
-            transition={{ duration: 0.5, ease: "easeOut", delay: prefersReduced ? 0 : 0.15 }}
+          <div
+            ref={intakeRightRef}
           >
             <div className="glass-card p-8 space-y-5 relative animate-pulse-glow">
               {/* Top accent */}
@@ -599,83 +592,15 @@ export default function PatientIntakeView() {
                 </span>
               </Button>
             </div>
-          </motion.div>
+          </div>
 
         </div>
       </section>
 
       {/* =============================================
-          SECTION 4: HOW IT WORKS — Horizontal scroll
+          SECTION 4: HOW IT WORKS — Cinematic scroll
           ============================================= */}
-      <section ref={horizontalRef} id="how-it-works" className="relative overflow-hidden" style={{ height: '75vh' }}>
-        <div className="absolute top-0 left-0 w-full py-6 px-6 z-10">
-          <motion.div
-            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-10% 0px" }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="max-w-6xl mx-auto"
-          >
-            <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-2">How It Works</p>
-            <h2 className="text-display-lg text-dark-ink">Three steps. <span className="text-white/90">Zero delay.</span></h2>
-          </motion.div>
-        </div>
-
-        <motion.div
-          ref={horizontalInnerRef}
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-10% 0px" }}
-          className="flex items-center gap-8 px-6 absolute top-1/2 -translate-y-1/2"
-          style={{ width: 'max-content', paddingLeft: '10vw', paddingRight: '10vw' }}
-        >
-          {/* Step 1 */}
-          <motion.div variants={cardVariants} className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
-            <div>
-              <div className="mb-6">
-                <MapPin className="w-6 h-6 text-goldenhour" />
-              </div>
-              <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-1">Step 01</p>
-              <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Lock Location</h3>
-              <p className="text-sm text-dark-ink-muted leading-relaxed">
-                Your browser GPS pins your exact coordinates. High-accuracy mode ensures precision even in dense urban areas.
-              </p>
-            </div>
-            <div className="h-1 bg-gradient-to-r from-goldenhour to-transparent rounded-full mt-4" />
-          </motion.div>
-
-          {/* Step 2 */}
-          <motion.div variants={cardVariants} className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
-            <div>
-              <div className="mb-6">
-                <Building2 className="w-6 h-6 text-emergency" />
-              </div>
-              <p className="text-[10px] font-black text-emergency uppercase tracking-[0.3em] mb-1">Step 02</p>
-              <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Smart Dispatch</h3>
-              <p className="text-sm text-dark-ink-muted leading-relaxed">
-                Our algorithm matches your emergency type to the nearest hospital with the right department and available bed capacity.
-              </p>
-            </div>
-            <div className="h-1 bg-gradient-to-r from-emergency to-transparent rounded-full mt-4" />
-          </motion.div>
-
-          {/* Step 3 */}
-          <motion.div variants={cardVariants} className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
-            <div>
-              <div className="mb-6">
-                <Droplet className="w-6 h-6 text-success" />
-              </div>
-              <p className="text-[10px] font-black text-success uppercase tracking-[0.3em] mb-1">Step 03</p>
-              <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Donor Alert</h3>
-              <p className="text-sm text-dark-ink-muted leading-relaxed">
-                Every registered blood donor matching your blood type within range receives an instant alert with your location coordinates.
-              </p>
-            </div>
-            <div className="h-1 bg-gradient-to-r from-success to-transparent rounded-full mt-4" />
-          </motion.div>
-        </motion.div>
-      </section>
+      <HowItWorksCinematic />
 
       {/* =============================================
           SECTION 5: STATS — Animated counters
@@ -730,7 +655,7 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 6: CTA FOOTER
           ============================================= */}
-      <section className="py-12 md:py-16 px-6 relative">
+      <section id="cta-footer" className="py-12 md:py-16 px-6 relative">
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <TextReveal
             as="h2"

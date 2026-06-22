@@ -346,29 +346,26 @@ async def rank_hospitals(
 
     candidates = candidates[:candidate_pool]
 
-    scored: List[Dict] = []
-    for h in candidates:
+    async def get_scored_candidate(h):
         eta = await eta_minutes(lat, lng, h["lat"], h["lng"])
         dept_match = needed_dept in h.get("departments", [])
         prox = _proximity_score(eta)
         dept = 1.0 if dept_match else 0.0
         score = _score(store, h["id"], prox, dept)
+        return {
+            "hospital_id": h["id"],
+            "name": h["name"],
+            "lat": h["lat"],
+            "lng": h["lng"],
+            "eta_minutes": eta,
+            "department_match": dept_match,
+            "distance_km": h["distance_km"],
+            "status": "pending",
+            "phone": h["phone"],
+            "_score": score,
+            "_record": h,
+        }
 
-        scored.append(
-            {
-                "hospital_id": h["id"],
-                "name": h["name"],
-                "lat": h["lat"],
-                "lng": h["lng"],
-                "eta_minutes": eta,
-                "department_match": dept_match,
-                "distance_km": h["distance_km"],
-                "status": "pending",
-                "phone": h["phone"],
-                "_score": score,
-                "_record": h,
-            }
-        )
-
+    scored = await asyncio.gather(*(get_scored_candidate(h) for h in candidates))
     scored.sort(key=lambda c: c["_score"], reverse=True)
     return scored[:top_n]
