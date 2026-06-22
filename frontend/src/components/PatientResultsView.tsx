@@ -600,7 +600,7 @@ export default function PatientResultsView() {
           ringClass = prefersReduced
             ? 'border-emerald-500/40'
             : 'border-emerald-500/40 animate-ping';
-          statusLabel = 'Confirmed Bed Available';
+          statusLabel = 'Capacity Confirmed';
         } else if (h.status === 'declined') {
           markerColor = 'bg-slate-400 opacity-60';
           ringClass = 'border-slate-400/10';

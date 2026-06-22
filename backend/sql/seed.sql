@@ -2,32 +2,45 @@
 -- Run AFTER sql/schema.sql. Idempotent: re-running is safe.
 
 -- Hospitals -----------------------------------------------------------------
-insert into hospitals (id, name, lat, lng, departments, beds_available, avg_response_rate, phone, contact_phone) values
-  ('h1', 'SMS Hospital', 26.9036, 75.8147, ARRAY['trauma', 'cardiac', 'general']::text[], 12, 0.92, '+91140000001', '+919800000001'),
-  ('h2', 'Fortis Escorts Jaipur', 26.8569, 75.8064, ARRAY['cardiac', 'general']::text[], 8, 0.88, '+91140000002', '+919800000002'),
-  ('h3', 'Manipal Hospital Jaipur', 26.8853, 75.747, ARRAY['trauma', 'cardiac', 'obstetric', 'general']::text[], 15, 0.9, '+91140000003', '+919800000003'),
-  ('h4', 'Narayana Multispeciality', 26.8312, 75.804, ARRAY['cardiac', 'general']::text[], 6, 0.81, '+91140000004', '+919800000004'),
-  ('h5', 'Eternal Hospital', 26.8665, 75.8101, ARRAY['cardiac', 'trauma', 'general']::text[], 9, 0.86, '+91140000005', '+919800000005'),
-  ('h6', 'CK Birla Hospital (RBH)', 26.8901, 75.7686, ARRAY['trauma', 'obstetric', 'general']::text[], 11, 0.89, '+91140000006', '+919800000006'),
-  ('h7', 'Mahatma Gandhi Hospital', 26.77, 75.855, ARRAY['trauma', 'general']::text[], 7, 0.78, '+91140000007', '+919800000007'),
-  ('h8', 'Apex Hospital Malviya Nagar', 26.8541, 75.8136, ARRAY['general', 'obstetric']::text[], 5, 0.74, '+91140000008', '+919800000008'),
-  ('h9', 'Santokba Durlabhji Memorial', 26.9, 75.806, ARRAY['trauma', 'cardiac', 'general']::text[], 10, 0.83, '+91140000009', '+919800000009'),
-  ('h10', 'Jaipur Golden Hospital', 26.92, 75.8, ARRAY['general']::text[], 4, 0.7, '+91140000010', '+919800000010'),
-  ('h11', 'Bhandari Hospital', 26.895, 75.74, ARRAY['trauma', 'general']::text[], 6, 0.76, '+91140000011', '+919800000011'),
-  ('h12', 'Soni Manipal Hospital', 26.865, 75.756, ARRAY['cardiac', 'obstetric', 'general']::text[], 8, 0.84, '+91140000012', '+919800000012'),
-  ('h13', 'Cocoon Hospital', 26.878, 75.751, ARRAY['obstetric', 'general']::text[], 5, 0.79, '+91140000013', '+919800000013'),
-  ('h14', 'EHCC Hospital', 26.8492, 75.8024, ARRAY['cardiac', 'trauma', 'general']::text[], 9, 0.85, '+91140000014', '+919800000014'),
-  ('h15', 'Rukmani Birla Hospital', 26.8895, 75.769, ARRAY['obstetric', 'general']::text[], 7, 0.82, '+91140000015', '+919800000015'),
-  ('h16', 'Tagore Hospital', 26.835, 75.79, ARRAY['trauma', 'general']::text[], 6, 0.75, '+91140000016', '+919800000016'),
-  ('h17', 'Monilek Hospital', 26.888, 75.806, ARRAY['general', 'obstetric']::text[], 4, 0.72, '+91140000017', '+919800000017'),
-  ('h18', 'Imperial Hospital', 26.93, 75.77, ARRAY['general']::text[], 3, 0.68, '+91140000018', '+919800000018'),
-  ('h19', 'Mital Hospital', 26.908, 75.799, ARRAY['general', 'trauma']::text[], 5, 0.73, '+91140000019', '+919800000019'),
-  ('h20', 'Getwell Hospital', 26.87, 75.82, ARRAY['general']::text[], 4, 0.71, '+91140000020', '+919800000020'),
-  ('h21', 'Shalby Hospital Jaipur', 26.848, 75.772, ARRAY['trauma', 'cardiac', 'general']::text[], 8, 0.8, '+91140000021', '+919800000021'),
-  ('h22', 'Dhanwantari Hospital', 26.915, 75.812, ARRAY['general', 'obstetric']::text[], 5, 0.74, '+91140000022', '+919800000022'),
-  ('h23', 'Pratap Memorial Hospital', 26.925, 75.82, ARRAY['general']::text[], 3, 0.69, '+91140000023', '+919800000023'),
-  ('h24', 'Jeevan Rekha Hospital', 26.86, 75.798, ARRAY['trauma', 'cardiac', 'general']::text[], 7, 0.81, '+91140000024', '+919800000024'),
-  ('h25', 'Marudhar Hospital', 26.904, 75.829, ARRAY['general', 'obstetric']::text[], 4, 0.72, '+91140000025', '+919800000025')
+insert into hospitals (id, name, lat, lng, departments, phone, contact_phone) values
+  ('h1', 'SMS Hospital', 26.9036, 75.8147, ARRAY['trauma', 'cardiac', 'general']::text[], '+91140000001', '+919800000001'),
+  ('h2', 'Fortis Escorts Jaipur', 26.8569, 75.8064, ARRAY['cardiac', 'general']::text[], '+91140000002', '+919800000002'),
+  ('h3', 'Manipal Hospital Jaipur', 26.8853, 75.747, ARRAY['trauma', 'cardiac', 'obstetric', 'general']::text[], '+91140000003', '+919800000003'),
+  ('h4', 'Narayana Multispeciality', 26.8312, 75.804, ARRAY['cardiac', 'general']::text[], '+91140000004', '+919800000004'),
+  ('h5', 'Eternal Hospital', 26.8665, 75.8101, ARRAY['cardiac', 'trauma', 'general']::text[], '+91140000005', '+919800000005'),
+  ('h6', 'CK Birla Hospital (RBH)', 26.8901, 75.7686, ARRAY['trauma', 'obstetric', 'general']::text[], '+91140000006', '+919800000006'),
+  ('h7', 'Mahatma Gandhi Hospital', 26.77, 75.855, ARRAY['trauma', 'general']::text[], '+91140000007', '+919800000007'),
+  ('h8', 'Apex Hospital Malviya Nagar', 26.8541, 75.8136, ARRAY['general', 'obstetric']::text[], '+91140000008', '+919800000008'),
+  ('h9', 'Santokba Durlabhji Memorial', 26.9, 75.806, ARRAY['trauma', 'cardiac', 'general']::text[], '+91140000009', '+919800000009'),
+  ('h10', 'Jaipur Golden Hospital', 26.92, 75.8, ARRAY['general']::text[], '+91140000010', '+919800000010'),
+  ('h11', 'Bhandari Hospital', 26.895, 75.74, ARRAY['trauma', 'general']::text[], '+91140000011', '+919800000011'),
+  ('h12', 'Soni Manipal Hospital', 26.865, 75.756, ARRAY['cardiac', 'obstetric', 'general']::text[], '+91140000012', '+919800000012'),
+  ('h13', 'Cocoon Hospital', 26.878, 75.751, ARRAY['obstetric', 'general']::text[], '+91140000013', '+919800000013'),
+  ('h14', 'EHCC Hospital', 26.8492, 75.8024, ARRAY['cardiac', 'trauma', 'general']::text[], '+91140000014', '+919800000014'),
+  ('h15', 'Rukmani Birla Hospital', 26.8895, 75.769, ARRAY['obstetric', 'general']::text[], '+91140000015', '+919800000015'),
+  ('h16', 'Tagore Hospital', 26.835, 75.79, ARRAY['trauma', 'general']::text[], '+91140000016', '+919800000016'),
+  ('h17', 'Monilek Hospital', 26.888, 75.806, ARRAY['general', 'obstetric']::text[], '+91140000017', '+919800000017'),
+  ('h18', 'Imperial Hospital', 26.93, 75.77, ARRAY['general']::text[], '+91140000018', '+919800000018'),
+  ('h19', 'Mital Hospital', 26.908, 75.799, ARRAY['general', 'trauma']::text[], '+91140000019', '+919800000019'),
+  ('h20', 'Getwell Hospital', 26.87, 75.82, ARRAY['general']::text[], '+91140000020', '+919800000020'),
+  ('h21', 'Shalby Hospital Jaipur', 26.848, 75.772, ARRAY['trauma', 'cardiac', 'general']::text[], '+91140000021', '+919800000021'),
+  ('h22', 'Dhanwantari Hospital', 26.915, 75.812, ARRAY['general', 'obstetric']::text[], '+91140000022', '+919800000022'),
+  ('h23', 'Pratap Memorial Hospital', 26.925, 75.82, ARRAY['general']::text[], '+91140000023', '+919800000023'),
+  ('h24', 'Jeevan Rekha Hospital', 26.86, 75.798, ARRAY['trauma', 'cardiac', 'general']::text[], '+91140000024', '+919800000024'),
+  ('h25', 'Marudhar Hospital', 26.904, 75.829, ARRAY['general', 'obstetric']::text[], '+91140000025', '+919800000025')
+on conflict (id) do nothing;
+
+-- Blood banks ----------------------------------------------------------------
+insert into blood_banks (id, name, lat, lng, city) values
+  ('bb1', 'SMS Hospital Blood Bank', 26.9036, 75.8147, 'Jaipur'),
+  ('bb2', 'Santokba Durlabhji Memorial Hospital Blood Bank', 26.9, 75.806, 'Jaipur'),
+  ('bb3', 'Indian Red Cross Society Blood Bank, Jaipur', 26.917, 75.806, 'Jaipur'),
+  ('bb4', 'Fortis Escorts Hospital Blood Bank', 26.8569, 75.8064, 'Jaipur'),
+  ('bb5', 'CK Birla Hospital (RBH) Blood Bank', 26.8901, 75.7686, 'Jaipur'),
+  ('bb6', 'Gauhati Medical College Hospital Blood Bank', 26.1535, 91.737, 'Guwahati'),
+  ('bb7', 'Indian Red Cross Society Blood Bank, Guwahati', 26.181, 91.755, 'Guwahati'),
+  ('bb8', 'Downtown Hospital Blood Bank', 26.145, 91.79, 'Guwahati'),
+  ('bb9', 'Nemcare Hospital Blood Bank', 26.164, 91.77, 'Guwahati')
 on conflict (id) do nothing;
 
 -- Donors --------------------------------------------------------------------

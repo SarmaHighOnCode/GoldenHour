@@ -28,22 +28,39 @@ def build() -> str:
         "-- Run AFTER sql/schema.sql. Idempotent: re-running is safe.",
         "",
         "-- Hospitals -----------------------------------------------------------------",
-        "insert into hospitals (id, name, lat, lng, departments, beds_available, "
-        "avg_response_rate, phone, contact_phone) values",
+        "insert into hospitals (id, name, lat, lng, departments, "
+        "phone, contact_phone) values",
     ]
     rows = []
     for h in seed_data.hospitals():
         rows.append(
-            "  ('{id}', '{name}', {lat}, {lng}, {depts}, {beds}, {rel}, '{phone}', '{contact}')".format(
+            "  ('{id}', '{name}', {lat}, {lng}, {depts}, '{phone}', '{contact}')".format(
                 id=h["id"],
                 name=_esc(h["name"]),
                 lat=h["lat"],
                 lng=h["lng"],
                 depts=_array_literal(h["departments"]),
-                beds=h["beds_available"],
-                rel=h["avg_response_rate"],
                 phone=h["phone"],
                 contact=h["contact_phone"],
+            )
+        )
+    out.append(",\n".join(rows))
+    out.append("on conflict (id) do nothing;")
+    out.append("")
+
+    out += [
+        "-- Blood banks ----------------------------------------------------------------",
+        "insert into blood_banks (id, name, lat, lng, city) values",
+    ]
+    rows = []
+    for b in seed_data.blood_banks():
+        rows.append(
+            "  ('{id}', '{name}', {lat}, {lng}, '{city}')".format(
+                id=b["id"],
+                name=_esc(b["name"]),
+                lat=b["lat"],
+                lng=b["lng"],
+                city=_esc(b["city"]),
             )
         )
     out.append(",\n".join(rows))

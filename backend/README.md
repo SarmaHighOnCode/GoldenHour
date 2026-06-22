@@ -2,8 +2,8 @@
 
 FastAPI service that turns one GPS-triggered emergency into two parallel actions:
 
-1. **Find a hospital** with the right department and a free bed, ranked best-first, and ask each to confirm.
-2. **Alert nearby compatible blood donors** who are off their post-donation cooldown.
+1. **Find the right-department hospital**, ranked best-first, and ask each to confirm capacity — the first to tap Accept takes the patient (a human confirming a bed, not a guessed number).
+2. **Alert nearby compatible blood donors** who are off their post-donation cooldown, routed to the nearest licensed blood bank.
 
 It owns everything the user doesn't see: the database, the ranking and matching
 algorithms, the confirmation/messaging flow, and live updates to the frontend.
@@ -156,8 +156,11 @@ surface the nearest hospitals with a 1-tap call — never a false "bed available
 donor groups (hardcoded ABO table), available, within 5 km, and off the
 sex-aware cooldown (90 days men / 120 days women — `last_donated IS NULL OR
 last_donated < today − cooldown`), nearest first. The nearest top-K are then
-alerted (`services/sms_service.py`) with directions to the hospital's **licensed
-blood bank**, not the emergency ward. Rh-negative requests are flagged `rare_group`.
+alerted (`services/sms_service.py`) and routed to the **nearest licensed blood
+bank** (`store.nearest_blood_bank`, seeded for the demo cities; generic guidance
+when none is in range), not the emergency ward. Per-bank unit stock isn't tracked
+— no public feed exists — so the alert names the nearest bank rather than claiming
+a group is in stock. Rh-negative requests are flagged `rare_group`.
 
 **3. Confirmation flow** (`services/confirm_service.py`) — the first hospital to
 accept "takes" the patient; any later acceptance gets `already_confirmed: true`

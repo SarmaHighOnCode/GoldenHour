@@ -19,8 +19,8 @@
 **GoldenHour** is a Progressive Web App + feature-phone SMS service that converts
 a single GPS-triggered emergency request into two simultaneous, parallel actions:
 
-1. **Locate and confirm a hospital** with the correct department and a free bed.
-2. **Alert nearby replacement-blood donors** of a compatible blood group.
+1. **Locate the right hospital and confirm live capacity** — rank by department + proximity, then the first hospital to tap **Accept** takes the patient (a human confirming a bed, never a stale or guessed number).
+2. **Alert nearby replacement-blood donors** of a compatible blood group, routed to the nearest licensed blood bank.
 
 It is built for the **self-transporting family in India** — the majority of
 emergency patients who travel to hospital by private car or auto, entirely
@@ -42,8 +42,8 @@ A single `POST /emergency` fans out into both branches at once. On the **hospita
 side, the backend ranks nearby hospitals and sends each a one-tap confirmation
 link; the **first to Accept "takes" the patient**, and later acceptances are told
 the patient is already routed. On the **blood** side, it matches compatible donors
-within range and alerts the nearest, directing them to the hospital's licensed
-blood bank. The patient's screen updates live the instant a hospital confirms.
+within range and alerts the nearest, directing them to the **nearest licensed
+blood bank**. The patient's screen updates live the instant a hospital confirms.
 
 ---
 
@@ -168,6 +168,29 @@ Full shapes in [`API_CONTRACT.md`](API_CONTRACT.md).
 | `POST /sms/inbound` | Feature-phone SMS path (stretch) |
 | `GET /health` · `GET /ready` | Liveness (mode) · readiness (pings the DB) |
 | `GET /dev/links` · `GET /dev/alerts` | Demo: links sent to hospitals · alerts sent to donors |
+
+---
+
+## Scope & honest limitations
+
+We'd rather be precise about what the running system does than over-claim. The
+engineering core is real; these three things are deliberately bounded:
+
+- **Bed availability is confirmed by a human, not a feed.** There is no public
+  real-time bed API in India, so we never display a guessed or stale bed count.
+  Capacity is asserted by a hospital contact tapping **Accept** on their link —
+  the real signal. The `beds_available` column exists in the schema but is
+  reserved (unpopulated) for a future hospital-HIS integration.
+- **Reliability-weighted ranking learns with use.** Day-one ranking is
+  proximity + department. The `rel(h)` term activates only once a hospital has
+  logged enough *real* confirmations (`REL_ACTIVATION_THRESHOLD`), so a fresh
+  deploy ranks on prox + dept and gets smarter as it's used — by design, not a
+  fabricated score.
+- **Blood-bank routing names the nearest licensed bank, not its stock.** Donors
+  are directed to the nearest seeded licensed blood bank (Jaipur + Guwahati in
+  the demo; generic guidance elsewhere). Per-bank unit stock isn't tracked — no
+  public feed exists — so we route to the nearest bank rather than claim a
+  specific group is in stock.
 
 ---
 

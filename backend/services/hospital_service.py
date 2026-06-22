@@ -20,7 +20,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import random
 import urllib.parse
 import urllib.request
 from typing import Dict, List
@@ -109,7 +108,6 @@ def _assign_departments(name: str) -> List[str]:
 
 
 def _parse_osm_elements(elements: list) -> List[Dict]:
-    rng = random.Random()
     seen: set = set()
     hospitals: List[Dict] = []
     for el in elements:
@@ -137,8 +135,6 @@ def _parse_osm_elements(elements: list) -> List[Dict]:
                 "lat": round(h_lat, 5),
                 "lng": round(h_lng, 5),
                 "departments": depts,
-                "beds_available": rng.randint(3, 15),
-                "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
                 "phone": phone,
                 "contact_phone": phone,
             }
@@ -148,7 +144,6 @@ def _parse_osm_elements(elements: list) -> List[Dict]:
 
 def _parse_places_results(results: list) -> List[Dict]:
     """Convert Places API (New) searchNearby results to hospital dicts."""
-    rng = random.Random()
     seen: set = set()
     hospitals: List[Dict] = []
     for place in results:
@@ -173,8 +168,6 @@ def _parse_places_results(results: list) -> List[Dict]:
                 "lat": round(h_lat, 5),
                 "lng": round(h_lng, 5),
                 "departments": depts,
-                "beds_available": rng.randint(3, 15),
-                "avg_response_rate": round(rng.uniform(0.65, 0.92), 2),
                 "phone": "+910000000000",
                 "contact_phone": "+910000000000",
             }

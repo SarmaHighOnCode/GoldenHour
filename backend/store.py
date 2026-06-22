@@ -54,6 +54,26 @@ def _parse_dt(value) -> datetime:
     return _now()
 
 
+def _nearest_blood_bank(
+    banks: List[Dict], lat: float, lng: float, max_km: float
+) -> Optional[Dict]:
+    """Nearest licensed blood bank within ``max_km``, or None.
+
+    The distance guard stops a seeded city's banks from leaking to a far-away
+    location (e.g. a Guwahati patient must not be routed to a Jaipur bank); when
+    nothing is in range the caller falls back to generic "nearest licensed bank"
+    guidance.
+    """
+    nearest: Optional[Dict] = None
+    best_km = max_km
+    for b in banks:
+        d = haversine_km(lat, lng, b["lat"], b["lng"])
+        if d <= best_km:
+            best_km = d
+            nearest = {**b, "distance_km": round(d, 2)}
+    return nearest
+
+
 # ===========================================================================
 # In-memory store (demo / CI)
 # ===========================================================================
@@ -62,6 +82,7 @@ class InMemoryStore:
 
     def __init__(self) -> None:
         self.hospitals: List[Dict] = seed_data.hospitals()
+        self.blood_banks: List[Dict] = seed_data.blood_banks()
         self.donors: List[Dict] = seed_data.donors()
         self.emergencies: Dict[str, Dict] = {}
         self.confirmations: Dict[str, Dict] = {}  # keyed by token
@@ -126,6 +147,12 @@ class InMemoryStore:
             )
             out.append(enriched)
         return out
+
+    # --- Blood banks -------------------------------------------------------
+    def nearest_blood_bank(
+        self, lat: float, lng: float, max_km: float = 60.0
+    ) -> Optional[Dict]:
+        return _nearest_blood_bank(self.blood_banks, lat, lng, max_km)
 
     # --- Donors ------------------------------------------------------------
     def compatible_donors_nearby(
@@ -249,11 +276,27 @@ class InMemoryStore:
         accepted = sum(1 for c in replied if c["confirmed"] is True)
         return len(replied), accepted / len(replied)
 
-    def record_reply(self, token: str, accepted: bool) -> None:
-        """Persist a hospital's Accept/Decline and update the emergency snapshot."""
+    def record_reply(self, token: str, accepted: bool) -> bool:
+        """Persist a hospital's Accept/Decline.
+
+        Returns True if the reply was recorded, False if it was blocked:
+        - token unknown
+        - already replied
+        - accepted=True but another hospital already won (atomic first-accept)
+
+        In a single-process asyncio context the check-and-set is already
+        non-interruptible (no await between read and write), so no lock is
+        needed here — the return value is what callers use to detect the race.
+        """
         conf = self.confirmations.get(token)
         if conf is None:
-            return
+            return False
+        if conf["confirmed"] is not None:
+            # Already replied (idempotent replay protection).
+            return False
+        if accepted and self.emergency_is_taken(conf["emergency_id"]):
+            # Another hospital won the race — do not overwrite.
+            return False
         conf["confirmed"] = accepted
         conf["replied_at"] = _now()
         emergency = self.emergencies.get(conf["emergency_id"])
@@ -264,6 +307,7 @@ class InMemoryStore:
                     card["status"] = status
             if accepted:
                 emergency["status"] = "confirmed"
+        return True
 
     # --- Donor alert tokens -----------------------------------------------
     def create_donor_alert_token(
@@ -307,7 +351,39 @@ class SupabaseStore:
     def __init__(self, client) -> None:
         self.client = client
         self._hospitals_cache: Optional[List[Dict]] = None
+        self._banks_cache: Optional[List[Dict]] = None
         self.donor_tokens: Dict[str, Dict] = {}  # in-process; no DB table needed
+        # In-process region cache so on-demand OSM fetching works the same as
+        # InMemoryStore. Cleared on restart, which is fine — the OSM fetch fires
+        # once per region per process lifetime, then new hospitals are cached here.
+        self._osm_regions: set = set()
+
+    def _region_key(self, lat: float, lng: float) -> tuple:
+        return (round(lat / 0.3), round(lng / 0.3))
+
+    def is_region_fetched(self, lat: float, lng: float) -> bool:
+        return self._region_key(lat, lng) in self._osm_regions
+
+    def mark_region_fetched(self, lat: float, lng: float) -> None:
+        self._osm_regions.add(self._region_key(lat, lng))
+
+    def bulk_add_hospitals(self, hospitals: List[Dict]) -> int:
+        """Cache OSM-fetched hospitals in-process (not persisted to Supabase)."""
+        if self._hospitals_cache is None:
+            _ = self.hospitals  # warm the cache from DB first
+        existing = {h["id"] for h in self._hospitals_cache}
+        added = 0
+        for h in hospitals:
+            if h["id"] not in existing:
+                self._hospitals_cache.append(h)
+                existing.add(h["id"])
+                added += 1
+        logger.info(
+            "OSM: added %d new hospitals to Supabase in-process cache (total %d)",
+            added,
+            len(self._hospitals_cache),
+        )
+        return added
 
     # --- Hospitals ---------------------------------------------------------
     @property
@@ -326,6 +402,19 @@ class SupabaseStore:
             )
             out.append(enriched)
         return out
+
+    # --- Blood banks -------------------------------------------------------
+    @property
+    def blood_banks(self) -> List[Dict]:
+        if self._banks_cache is None:
+            res = self.client.table("blood_banks").select("*").execute()
+            self._banks_cache = res.data or []
+        return self._banks_cache
+
+    def nearest_blood_bank(
+        self, lat: float, lng: float, max_km: float = 60.0
+    ) -> Optional[Dict]:
+        return _nearest_blood_bank(self.blood_banks, lat, lng, max_km)
 
     # --- Donors (PostGIS radius via RPC) -----------------------------------
     def compatible_donors_nearby(
@@ -504,17 +593,45 @@ class SupabaseStore:
         accepted = sum(1 for r in replied if r["confirmed"] is True)
         return len(replied), accepted / len(replied)
 
-    def record_reply(self, token: str, accepted: bool) -> None:
-        self.client.table("confirmation_requests").update(
-            {"confirmed": accepted, "replied_at": _now().isoformat()}
-        ).eq("token", token).execute()
+    def record_reply(self, token: str, accepted: bool) -> bool:
+        """Persist a hospital's Accept/Decline atomically.
 
+        For ACCEPT: delegates to the ``claim_emergency`` Postgres function which
+        performs a single UPDATE … WHERE NOT EXISTS (another accepted row). Only
+        one concurrent accept can match rows — the loser gets rows_updated=0 and
+        this method returns False so the caller knows the race was lost.
+
+        For DECLINE: a plain conditional UPDATE (only if not yet replied).
+
+        Returns True if the reply was written, False if blocked.
+        """
         conf = self.get_confirmation(token)
         if conf is None:
-            return
+            return False
+
+        if accepted:
+            # Single atomic statement — cannot double-confirm.
+            res = self.client.rpc(
+                "claim_emergency",
+                {"p_token": token, "p_emergency_id": conf["emergency_id"]},
+            ).execute()
+            won = bool(res.data)
+            if not won:
+                return False
+        else:
+            res = (
+                self.client.table("confirmation_requests")
+                .update({"confirmed": False, "replied_at": _now().isoformat()})
+                .eq("token", token)
+                .is_("confirmed", None)  # idempotent: skip if already replied
+                .execute()
+            )
+            if not res.data:
+                return False
+
         emergency = self.get_emergency(conf["emergency_id"])
         if emergency is None:
-            return
+            return True
         status = "confirmed" if accepted else "declined"
         cards = emergency["hospitals"]
         for card in cards:
@@ -526,6 +643,7 @@ class SupabaseStore:
         self.client.table("emergency_requests").update(update).eq(
             "id", conf["emergency_id"]
         ).execute()
+        return True
 
     # --- Donor alert tokens -----------------------------------------------
     def create_donor_alert_token(

@@ -8,6 +8,7 @@ from geo import haversine_km
 from services.donor_service import match_donors
 from services.hospital_service import rank_hospitals
 from services.rate_limiter import RateLimiter
+from services.sms_service import alert_donors, recent_alerts
 from store import get_store
 
 
@@ -63,6 +64,38 @@ def test_haversine_known_distance_is_reasonable():
     # ~1 degree of latitude is ~111 km.
     km = haversine_km(26.0, 75.0, 27.0, 75.0)
     assert 110 < km < 112
+
+
+# --- Blood-bank routing ----------------------------------------------------
+def test_nearest_blood_bank_in_seeded_city():
+    store = get_store()
+    bank = store.nearest_blood_bank(26.9124, 75.7873)  # central Jaipur
+    assert bank is not None
+    assert "distance_km" in bank
+    assert bank["distance_km"] <= 60.0
+
+
+def test_nearest_blood_bank_none_when_far_from_any_seeded_bank():
+    store = get_store()
+    # Mid-ocean: no seeded bank within the distance guard -> generic fallback.
+    assert store.nearest_blood_bank(0.0, 0.0) is None
+
+
+def test_alert_names_bank_when_in_range():
+    recent_alerts.clear()
+    donors = [{"phone": "+910000000001", "blood_group": "O+", "lat": 0, "lng": 0}]
+    bank = {"name": "SMS Hospital Blood Bank", "distance_km": 1.2}
+    alert_donors(donors, "O+", blood_bank=bank)
+    assert recent_alerts
+    assert "SMS Hospital Blood Bank" in recent_alerts[0]["message"]
+
+
+def test_alert_falls_back_to_generic_without_bank():
+    recent_alerts.clear()
+    donors = [{"phone": "+910000000002", "blood_group": "O+", "lat": 0, "lng": 0}]
+    alert_donors(donors, "O+", blood_bank=None)
+    assert recent_alerts
+    assert "LICENSED BLOOD BANK" in recent_alerts[0]["message"]
 
 
 # --- Hospital ranking ------------------------------------------------------

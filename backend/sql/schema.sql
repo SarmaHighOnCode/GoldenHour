@@ -19,8 +19,12 @@ create table if not exists hospitals (
                           generated always as
                           (ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography) stored,
     departments       text[] not null default '{}',  -- {"trauma","cardiac","general"}
-    beds_available    integer not null default 0,
-    avg_response_rate double precision not null default 0.0,
+    -- RESERVED, not populated by the app. There is no public real-time bed feed
+    -- in India, so the app never writes a fabricated number here. Capacity is
+    -- confirmed by a human tapping Accept on the confirmation link. Kept for a
+    -- future hospital-HIS integration that could fill these honestly.
+    beds_available    integer default null,
+    avg_response_rate double precision default null,
     phone             text,
     contact_phone     text
 );
@@ -41,6 +45,24 @@ create table if not exists blood_donors (
     last_donated  date,                             -- null = never donated
     sex           text,                             -- 'male' | 'female' | null
     available     boolean not null default true
+);
+
+-- ---------------------------------------------------------------------------
+-- blood_banks
+--
+-- Licensed blood banks that replacement donors are routed to. Per-bank unit
+-- stock is NOT tracked (no public feed), so the app directs donors to the
+-- nearest licensed bank rather than claiming a specific group is in stock.
+-- ---------------------------------------------------------------------------
+create table if not exists blood_banks (
+    id        text primary key,                       -- e.g. "bb1"
+    name      text not null,
+    lat       double precision not null,
+    lng       double precision not null,
+    location  geography(Point, 4326)
+                  generated always as
+                  (ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography) stored,
+    city      text
 );
 
 -- ---------------------------------------------------------------------------
@@ -81,6 +103,7 @@ create table if not exists confirmation_requests (
 -- ---------------------------------------------------------------------------
 create index if not exists idx_donors_loc on blood_donors using gist (location);
 create index if not exists idx_hosp_loc   on hospitals    using gist (location);
+create index if not exists idx_banks_loc  on blood_banks  using gist (location);
 create index if not exists idx_conf_emergency on confirmation_requests (emergency_id);
 
 -- ---------------------------------------------------------------------------
@@ -115,6 +138,42 @@ as $$
     order by ST_Distance(
             d.location,
             ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography);
+$$;
+
+-- ---------------------------------------------------------------------------
+-- RPC: atomic first-accept-wins confirmation.
+--
+-- A single UPDATE that checks and writes in one statement. Postgres evaluates
+-- the NOT EXISTS subquery under the UPDATE's snapshot, so two simultaneous
+-- ACCEPT taps cannot both win — only one UPDATE will match rows.
+--
+-- Returns TRUE if this call won the race (rows updated > 0), FALSE otherwise.
+-- Call via supabase.rpc('claim_emergency', {'p_token': ..., 'p_emergency_id': ...}).
+-- ---------------------------------------------------------------------------
+create or replace function claim_emergency(
+    p_token         text,
+    p_emergency_id  text
+)
+returns boolean
+language plpgsql
+as $$
+declare
+    v_rows integer;
+begin
+    update confirmation_requests
+    set confirmed  = true,
+        replied_at = now()
+    where token        = p_token
+      and confirmed is null
+      and not exists (
+          select 1
+          from confirmation_requests
+          where emergency_id = p_emergency_id
+            and confirmed = true
+      );
+    get diagnostics v_rows = row_count;
+    return v_rows > 0;
+end;
 $$;
 
 -- ---------------------------------------------------------------------------

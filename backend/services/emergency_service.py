@@ -64,7 +64,11 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
         response_urls.append(
             f"{settings.backend_url.rstrip('/')}/donor/respond/{token}"
         )
-    alert_donors(donors, blood_group, response_urls)
+    # Route replacement donors to the nearest licensed blood bank when one is in
+    # range (seeded demo cities); elsewhere the alert falls back to generic
+    # "nearest licensed blood bank" guidance.
+    blood_bank = store.nearest_blood_bank(lat, lng)
+    alert_donors(donors, blood_group, response_urls, blood_bank=blood_bank)
 
     # One confirmation request + link per hospital.
     for c in ranked:

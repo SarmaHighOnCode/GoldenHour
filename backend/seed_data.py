@@ -24,82 +24,93 @@ JAIPUR_LNG = 75.7873
 
 DEPARTMENTS = ["trauma", "cardiac", "obstetric", "general"]
 
-# name, lat, lng, departments, beds_available, avg_response_rate
+# name, lat, lng, departments
+#
+# NOTE: bed counts and response rates are deliberately NOT seeded. There is no
+# public real-time bed feed in India, so a fabricated number would be dishonest.
+# Capacity is confirmed by a human at the hospital tapping Accept on their link
+# (the real signal); the schema keeps beds_available / avg_response_rate columns
+# reserved for a future hospital-HIS integration but the app never populates them.
 _HOSPITALS = [
-    ("SMS Hospital", 26.9036, 75.8147, ["trauma", "cardiac", "general"], 12, 0.92),
-    ("Fortis Escorts Jaipur", 26.8569, 75.8064, ["cardiac", "general"], 8, 0.88),
+    ("SMS Hospital", 26.9036, 75.8147, ["trauma", "cardiac", "general"]),
+    ("Fortis Escorts Jaipur", 26.8569, 75.8064, ["cardiac", "general"]),
     (
         "Manipal Hospital Jaipur",
         26.8853,
         75.7470,
         ["trauma", "cardiac", "obstetric", "general"],
-        15,
-        0.90,
     ),
-    ("Narayana Multispeciality", 26.8312, 75.8040, ["cardiac", "general"], 6, 0.81),
-    ("Eternal Hospital", 26.8665, 75.8101, ["cardiac", "trauma", "general"], 9, 0.86),
+    ("Narayana Multispeciality", 26.8312, 75.8040, ["cardiac", "general"]),
+    ("Eternal Hospital", 26.8665, 75.8101, ["cardiac", "trauma", "general"]),
     (
         "CK Birla Hospital (RBH)",
         26.8901,
         75.7686,
         ["trauma", "obstetric", "general"],
-        11,
-        0.89,
     ),
-    ("Mahatma Gandhi Hospital", 26.7700, 75.8550, ["trauma", "general"], 7, 0.78),
+    ("Mahatma Gandhi Hospital", 26.7700, 75.8550, ["trauma", "general"]),
     (
         "Apex Hospital Malviya Nagar",
         26.8541,
         75.8136,
         ["general", "obstetric"],
-        5,
-        0.74,
     ),
     (
         "Santokba Durlabhji Memorial",
         26.9000,
         75.8060,
         ["trauma", "cardiac", "general"],
-        10,
-        0.83,
     ),
-    ("Jaipur Golden Hospital", 26.9200, 75.8000, ["general"], 4, 0.70),
-    ("Bhandari Hospital", 26.8950, 75.7400, ["trauma", "general"], 6, 0.76),
+    ("Jaipur Golden Hospital", 26.9200, 75.8000, ["general"]),
+    ("Bhandari Hospital", 26.8950, 75.7400, ["trauma", "general"]),
     (
         "Soni Manipal Hospital",
         26.8650,
         75.7560,
         ["cardiac", "obstetric", "general"],
-        8,
-        0.84,
     ),
-    ("Cocoon Hospital", 26.8780, 75.7510, ["obstetric", "general"], 5, 0.79),
-    ("EHCC Hospital", 26.8492, 75.8024, ["cardiac", "trauma", "general"], 9, 0.85),
-    ("Rukmani Birla Hospital", 26.8895, 75.7690, ["obstetric", "general"], 7, 0.82),
-    ("Tagore Hospital", 26.8350, 75.7900, ["trauma", "general"], 6, 0.75),
-    ("Monilek Hospital", 26.8880, 75.8060, ["general", "obstetric"], 4, 0.72),
-    ("Imperial Hospital", 26.9300, 75.7700, ["general"], 3, 0.68),
-    ("Mital Hospital", 26.9080, 75.7990, ["general", "trauma"], 5, 0.73),
-    ("Getwell Hospital", 26.8700, 75.8200, ["general"], 4, 0.71),
+    ("Cocoon Hospital", 26.8780, 75.7510, ["obstetric", "general"]),
+    ("EHCC Hospital", 26.8492, 75.8024, ["cardiac", "trauma", "general"]),
+    ("Rukmani Birla Hospital", 26.8895, 75.7690, ["obstetric", "general"]),
+    ("Tagore Hospital", 26.8350, 75.7900, ["trauma", "general"]),
+    ("Monilek Hospital", 26.8880, 75.8060, ["general", "obstetric"]),
+    ("Imperial Hospital", 26.9300, 75.7700, ["general"]),
+    ("Mital Hospital", 26.9080, 75.7990, ["general", "trauma"]),
+    ("Getwell Hospital", 26.8700, 75.8200, ["general"]),
     (
         "Shalby Hospital Jaipur",
         26.8480,
         75.7720,
         ["trauma", "cardiac", "general"],
-        8,
-        0.80,
     ),
-    ("Dhanwantari Hospital", 26.9150, 75.8120, ["general", "obstetric"], 5, 0.74),
-    ("Pratap Memorial Hospital", 26.9250, 75.8200, ["general"], 3, 0.69),
+    ("Dhanwantari Hospital", 26.9150, 75.8120, ["general", "obstetric"]),
+    ("Pratap Memorial Hospital", 26.9250, 75.8200, ["general"]),
     (
         "Jeevan Rekha Hospital",
         26.8600,
         75.7980,
         ["trauma", "cardiac", "general"],
-        7,
-        0.81,
     ),
-    ("Marudhar Hospital", 26.9040, 75.8290, ["general", "obstetric"], 4, 0.72),
+    ("Marudhar Hospital", 26.9040, 75.8290, ["general", "obstetric"]),
+]
+
+# Real, licensed blood banks for the seeded demo cities (approximate coords).
+# Replacement donors are routed to the NEAREST of these. Per-bank unit stock is
+# not tracked (no public feed), so we direct to the nearest licensed bank rather
+# than claiming a specific group is in stock — see donor_service / sms_service.
+# name, lat, lng, city
+_BLOOD_BANKS = [
+    # Jaipur
+    ("SMS Hospital Blood Bank", 26.9036, 75.8147, "Jaipur"),
+    ("Santokba Durlabhji Memorial Hospital Blood Bank", 26.9000, 75.8060, "Jaipur"),
+    ("Indian Red Cross Society Blood Bank, Jaipur", 26.9170, 75.8060, "Jaipur"),
+    ("Fortis Escorts Hospital Blood Bank", 26.8569, 75.8064, "Jaipur"),
+    ("CK Birla Hospital (RBH) Blood Bank", 26.8901, 75.7686, "Jaipur"),
+    # Guwahati
+    ("Gauhati Medical College Hospital Blood Bank", 26.1535, 91.7370, "Guwahati"),
+    ("Indian Red Cross Society Blood Bank, Guwahati", 26.1810, 91.7550, "Guwahati"),
+    ("Downtown Hospital Blood Bank", 26.1450, 91.7900, "Guwahati"),
+    ("Nemcare Hospital Blood Bank", 26.1640, 91.7700, "Guwahati"),
 ]
 
 _FIRST_NAMES = [
@@ -162,7 +173,7 @@ def _scatter(rng: random.Random, max_km: float) -> tuple[float, float]:
 def hospitals() -> List[Dict]:
     """The seeded hospital list, one dict per hospital."""
     out: List[Dict] = []
-    for i, (name, lat, lng, depts, beds, rel) in enumerate(_HOSPITALS, start=1):
+    for i, (name, lat, lng, depts) in enumerate(_HOSPITALS, start=1):
         out.append(
             {
                 "id": f"h{i}",
@@ -170,14 +181,26 @@ def hospitals() -> List[Dict]:
                 "lat": lat,
                 "lng": lng,
                 "departments": depts,
-                "beds_available": beds,
-                "avg_response_rate": rel,
                 "phone": f"+9114{i:07d}",
                 "contact_phone": f"+9198{i:08d}",
                 "confirm_token": f"hosp-{i:02d}-token",
             }
         )
     return out
+
+
+def blood_banks() -> List[Dict]:
+    """The seeded licensed blood banks, one dict per bank."""
+    return [
+        {
+            "id": f"bb{i}",
+            "name": name,
+            "lat": lat,
+            "lng": lng,
+            "city": city,
+        }
+        for i, (name, lat, lng, city) in enumerate(_BLOOD_BANKS, start=1)
+    ]
 
 
 def donors(count: int = 180, seed: int = 42) -> List[Dict]:

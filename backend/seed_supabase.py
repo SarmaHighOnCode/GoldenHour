@@ -41,12 +41,21 @@ def main() -> int:
             "lat": h["lat"],
             "lng": h["lng"],
             "departments": h["departments"],
-            "beds_available": h["beds_available"],
-            "avg_response_rate": h["avg_response_rate"],
             "phone": h["phone"],
             "contact_phone": h["contact_phone"],
         }
         for h in seed_data.hospitals()
+    ]
+
+    banks = [
+        {
+            "id": b["id"],
+            "name": b["name"],
+            "lat": b["lat"],
+            "lng": b["lng"],
+            "city": b["city"],
+        }
+        for b in seed_data.blood_banks()
     ]
 
     donors = [
@@ -65,6 +74,8 @@ def main() -> int:
 
     print(f"Upserting {len(hospitals)} hospitals...")
     client.table("hospitals").upsert(hospitals).execute()
+    print(f"Upserting {len(banks)} blood banks...")
+    client.table("blood_banks").upsert(banks).execute()
     print(f"Upserting {len(donors)} donors...")
     client.table("blood_donors").upsert(donors).execute()
     print("Done.")

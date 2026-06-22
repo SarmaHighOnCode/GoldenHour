@@ -53,7 +53,7 @@ const STEPS: StepCard[] = [
     step: 'Step 02',
     title: 'Smart Dispatch',
     description:
-      'Our algorithm matches your emergency type to the nearest hospital with the right department and available bed capacity — in milliseconds.',
+      'We rank the nearest hospitals with the right department and send each a one-tap link. The first to Accept takes you — a human confirming a real bed, not a guessed number.',
     icon: <Building2 className="w-7 h-7" />,
     accentColor: '#DC2626',
     index: 1,
@@ -62,7 +62,7 @@ const STEPS: StepCard[] = [
     step: 'Step 03',
     title: 'Donor Alert',
     description:
-      'Every registered blood donor matching your blood type within range receives an instant push alert with your location — simultaneously.',
+      'In parallel, compatible donors within range are alerted by SMS and routed to the nearest licensed blood bank for replacement donation.',
     icon: <Droplet className="w-7 h-7" />,
     accentColor: '#059669',
     index: 2,

@@ -58,30 +58,29 @@ def get_confirmation_details(store, token: str) -> Dict:
 def handle_confirmation(store, token: str, accepted: bool) -> Dict:
     """Apply a hospital's Accept/Decline and return the response payload.
 
-    Persistence goes through ``store.record_reply`` so this works identically
-    against the in-memory and Supabase stores.
+    The race is resolved atomically inside ``store.record_reply``: for an ACCEPT
+    the store performs a single conditional write that only succeeds when no
+    other hospital has already accepted. The return value tells us whether this
+    call won or lost — no separate pre-check SELECT needed.
     """
     confirmation = store.get_confirmation(token)
     if confirmation is None:
         raise ConfirmationNotFound(token)
 
-    emergency_id = confirmation["emergency_id"]
     hospital_name = confirmation["hospital_name"]
 
-    # Has someone else already accepted this patient?
-    already_taken = store.emergency_is_taken(emergency_id)
-    winner_is_someone_else = already_taken and confirmation["confirmed"] is not True
+    recorded = store.record_reply(token, accepted)
 
-    if winner_is_someone_else:
-        # Don't override the winner; just report the race result.
+    if accepted and not recorded:
+        # Lost the race — another hospital already accepted this patient.
         return {
             "ok": True,
             "hospital_name": hospital_name,
             "already_confirmed": True,
         }
 
-    store.record_reply(token, accepted)
-    publish_confirmation(token, accepted)
+    if recorded:
+        publish_confirmation(token, accepted)
 
     return {
         "ok": True,

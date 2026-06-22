@@ -75,14 +75,13 @@ async def _prewarm_osm() -> None:
     """Fetch hospitals from Overpass at startup for OSM_SEED_COORDS locations.
 
     Runs as a background task so the API is immediately ready — the pre-warm
-    completes in the background. Only fires in in-memory (demo) mode; Supabase
-    already has real data.
+    completes in the background. Works for both InMemoryStore (demo) and
+    SupabaseStore (production): new hospitals are cached in-process so any
+    city in OSM_SEED_COORDS is ready without waiting on the first real request.
     """
     from services.hospital_service import _fetch_hospitals_nearby as _fetch_from_osm
 
     store = get_store()
-    if not hasattr(store, "bulk_add_hospitals"):
-        return  # Supabase store — skip
     if not settings.osm_seed_coords:
         return
 
