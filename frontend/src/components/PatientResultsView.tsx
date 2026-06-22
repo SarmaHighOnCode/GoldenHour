@@ -259,6 +259,8 @@ export default function PatientResultsView() {
           return {
             hospital_id: newH.hospital_id,
             name: newH.name,
+            lat: newH.lat ?? existing?.lat,
+            lng: newH.lng ?? existing?.lng,
             eta_minutes: normalizeEta(newH.eta_minutes),
             status: newH.status,
             department_match: existing ? existing.department_match : (newH.department_match ?? false),
@@ -393,6 +395,8 @@ export default function PatientResultsView() {
                   return {
                     hospital_id: newH.hospital_id,
                     name: newH.name,
+                    lat: newH.lat ?? existing?.lat,
+                    lng: newH.lng ?? existing?.lng,
                     eta_minutes: normalizeEta(newH.eta_minutes),
                     status: newH.status,
                     department_match: existing ? existing.department_match : (newH.department_match ?? false),
