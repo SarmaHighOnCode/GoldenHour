@@ -368,18 +368,29 @@ class SupabaseStore:
         self._osm_regions.add(self._region_key(lat, lng))
 
     def bulk_add_hospitals(self, hospitals: List[Dict]) -> int:
-        """Cache OSM-fetched hospitals in-process (not persisted to Supabase)."""
+        """Upsert OSM-fetched hospitals into Supabase and warm the in-process cache."""
         if self._hospitals_cache is None:
             _ = self.hospitals  # warm the cache from DB first
         existing = {h["id"] for h in self._hospitals_cache}
-        added = 0
-        for h in hospitals:
-            if h["id"] not in existing:
+        new_hospitals = [h for h in hospitals if h["id"] not in existing]
+        if new_hospitals:
+            db_cols = [
+                "id",
+                "name",
+                "lat",
+                "lng",
+                "departments",
+                "phone",
+                "contact_phone",
+            ]
+            rows = [{k: h[k] for k in db_cols if k in h} for h in new_hospitals]
+            self.client.table("hospitals").upsert(rows).execute()
+            for h in new_hospitals:
                 self._hospitals_cache.append(h)
                 existing.add(h["id"])
-                added += 1
+        added = len(new_hospitals)
         logger.info(
-            "OSM: added %d new hospitals to Supabase in-process cache (total %d)",
+            "OSM: upserted %d new hospitals to Supabase (total %d)",
             added,
             len(self._hospitals_cache),
         )
