@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion'
 import { gsap, ScrollTrigger } from '../lib/gsap-setup';
 import { HeroScene } from './three/HeroScene';
 import { CountUp } from './motion/CountUp';
+import { TextReveal } from './motion/TextReveal';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
@@ -463,25 +464,25 @@ export default function PatientIntakeView() {
           ============================================= */}
       <section className="py-12 md:py-16 px-6 glow-crimson relative overflow-hidden flex items-center justify-center">
         <div className="max-w-4xl mx-auto space-y-8">
-          <motion.h2
-            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-10% 0px" }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+          <TextReveal
+            as="h2"
             className="text-display-lg text-dark-ink leading-tight"
+            stagger={0.06}
+            start="top 80%"
+            end="top 30%"
           >
             In an emergency, every minute between injury and hospital care determines survival. The golden hour is not a metaphor — it is a countdown.
-          </motion.h2>
+          </TextReveal>
 
-          <motion.p
-            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-10% 0px" }}
-            transition={{ duration: 0.5, ease: "easeOut", delay: prefersReduced ? 0 : 0.15 }}
+          <TextReveal
+            as="p"
             className="text-display-md text-dark-ink-muted leading-relaxed max-w-3xl"
+            stagger={0.03}
+            start="top 85%"
+            end="top 35%"
           >
             GoldenHour eliminates the chaos. One tap locks your GPS, dispatches the nearest hospital with a matching department, and broadcasts to every registered blood donor within range. Simultaneously.
-          </motion.p>
+          </TextReveal>
         </div>
       </section>
 
@@ -764,15 +765,15 @@ export default function PatientIntakeView() {
           ============================================= */}
       <section className="py-12 md:py-16 px-6 relative">
         <div className="max-w-3xl mx-auto text-center space-y-8">
-          <motion.h2
-            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-10% 0px" }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+          <TextReveal
+            as="h2"
             className="text-display-lg text-gradient"
+            stagger={0.04}
+            start="top 80%"
+            end="top 50%"
           >
             When someone you love needs help, every second is a lifetime.
-          </motion.h2>
+          </TextReveal>
 
           <motion.div
             initial={prefersReduced ? {} : { opacity: 0, y: 20 }}

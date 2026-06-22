@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { gsap, ScrollTrigger } from '../../lib/gsap-setup';
+import { useReducedMotion } from 'framer-motion';
 
 interface TextRevealProps {
   children: string;
@@ -28,8 +29,11 @@ export const TextReveal: React.FC<TextRevealProps> = ({
   end = 'top 25%',
 }) => {
   const containerRef = useRef<HTMLElement>(null);
+  const prefersReduced = useReducedMotion();
 
   useEffect(() => {
+    if (prefersReduced) return;
+
     const el = containerRef.current;
     if (!el) return;
 
