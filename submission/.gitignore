@@ -1,0 +1,15 @@
+# Node build deps for the deck generator
+deck-build/node_modules/
+
+# LaTeX build intermediates
+*.aux
+*.toc
+*.out
+*.log
+*.synctex.gz
+
+# QA / preview renders
+qa/
+doc-*.jpg
+slide-*.jpg
+*.pdf.bak
