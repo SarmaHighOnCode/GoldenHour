@@ -62,9 +62,9 @@ export default function PatientResultsView() {
   const hospitalMarkersRef = useRef<Record<string, L.Marker>>({});
   const routeLinesRef = useRef<Record<string, L.Polyline>>({});
 
-  // Configurable Mock state (defaults to true for reliable demo offline mode)
+  // Configurable Mock state (defaults to false — real API; set localStorage key to 'true' to enable offline demo)
   const [isMockMode, setIsMockMode] = useState<boolean>(() => {
-    return localStorage.getItem('goldenhour_mock_mode') !== 'false';
+    return localStorage.getItem('goldenhour_mock_mode') === 'true';
   });
 
   const mountTime = useRef<number>(Date.now());
