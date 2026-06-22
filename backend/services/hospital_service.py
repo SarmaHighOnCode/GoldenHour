@@ -384,9 +384,16 @@ async def rank_hospitals(
 
     candidates = candidates[:candidate_pool]
 
+    # ETA lookups run concurrently. Each is an independent external call (Google
+    # Distance Matrix when configured); awaiting them in a loop made POST
+    # /emergency pay candidate_pool x per-call latency in series — up to ~48s once
+    # real Maps is on. gather caps it at roughly the slowest single lookup.
+    etas = await asyncio.gather(
+        *(eta_minutes(lat, lng, h["lat"], h["lng"]) for h in candidates)
+    )
+
     scored: List[Dict] = []
-    for h in candidates:
-        eta = await eta_minutes(lat, lng, h["lat"], h["lng"])
+    for h, eta in zip(candidates, etas):
         dept_match = needed_dept in h.get("departments", [])
         prox = _proximity_score(eta)
         dept = 1.0 if dept_match else 0.0
