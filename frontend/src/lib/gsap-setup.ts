@@ -1,8 +1,9 @@
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 
 // Register GSAP plugins once at app startup
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
 
 // Default GSAP configuration for premium feel
 gsap.defaults({
@@ -10,4 +11,4 @@ gsap.defaults({
   duration: 1,
 });
 
-export { gsap, ScrollTrigger };
+export { gsap, ScrollTrigger, MotionPathPlugin };

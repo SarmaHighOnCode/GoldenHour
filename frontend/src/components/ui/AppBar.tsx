@@ -5,6 +5,9 @@ import { gsap } from '../../lib/gsap-setup';
 export const AppBar: React.FC = () => {
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const isRegister = location.pathname === '/register';
+  const isResults = location.pathname.startsWith('/results/');
+  const isDark = isHome || isRegister || isResults;
   const headerRef = useRef<HTMLElement>(null);
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
@@ -44,8 +47,8 @@ export const AppBar: React.FC = () => {
     <header
       ref={headerRef}
       className={`sticky top-0 z-50 px-4 py-3.5 select-none transition-colors duration-500 ${
-        isHome
-          ? 'bg-transparent border-b border-white/5'
+        isDark
+          ? (isHome ? 'bg-transparent border-b border-white/5' : 'bg-[#0A0A0F]/80 backdrop-blur-md border-b border-white/5')
           : 'bg-[#FBFAF8]/90 backdrop-blur-md border-b border-[#E5E2DD] shadow-sm'
       }`}
     >
@@ -54,15 +57,15 @@ export const AppBar: React.FC = () => {
           <div className="relative flex items-center justify-center">
             {/* Heartbeat pulse rings */}
             <span className={`absolute inline-flex h-9 w-9 rounded-full opacity-15 animate-ping ${
-              isHome ? 'bg-goldenhour' : 'bg-emergency'
+              isDark ? 'bg-goldenhour' : 'bg-emergency'
             }`} />
             <span className={`absolute inline-flex h-7.5 w-7.5 rounded-full opacity-20 animate-pulse ${
-              isHome ? 'bg-emergency' : 'bg-goldenhour'
+              isDark ? 'bg-emergency' : 'bg-goldenhour'
             }`} />
 
             <svg
               className={`w-5.5 h-5.5 relative z-10 filter ${
-                isHome
+                isDark
                   ? 'text-goldenhour drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]'
                   : 'text-emergency drop-shadow-[0_0_4px_rgba(220,38,38,0.25)]'
               }`}
@@ -74,7 +77,7 @@ export const AppBar: React.FC = () => {
           </div>
 
           <span className={`font-display font-bold text-lg tracking-tight ${
-            isHome ? 'text-dark-ink' : 'text-ink'
+            isDark ? 'text-dark-ink' : 'text-ink'
           }`}>
             Golden<span className="text-goldenhour">Hour</span>
           </span>
@@ -99,10 +102,10 @@ export const AppBar: React.FC = () => {
             : 'bg-success/10 border border-success/20'
         }`}>
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+            <span className="animate-live-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
           </span>
-          <span className="text-[10px] font-black text-success tracking-widest uppercase">Console Active</span>
+          <span className="text-[10px] font-black text-success tracking-widest uppercase">Live</span>
         </div>
       </div>
     </header>

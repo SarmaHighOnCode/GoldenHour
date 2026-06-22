@@ -35,6 +35,8 @@ async def trigger_emergency(store, lat, lng, emergency_type, blood_group) -> Dic
         {
             "hospital_id": c["hospital_id"],
             "name": c["name"],
+            "lat": c["lat"],
+            "lng": c["lng"],
             "eta_minutes": c["eta_minutes"],
             "department_match": c["department_match"],
             "distance_km": c["distance_km"],
@@ -115,6 +117,8 @@ def get_status(store, request_id: str) -> Dict:
             {
                 "hospital_id": card["hospital_id"],
                 "name": card["name"],
+                "lat": card["lat"],
+                "lng": card["lng"],
                 "eta_minutes": card["eta_minutes"],
                 "status": status,
             }
@@ -129,6 +133,8 @@ def get_status(store, request_id: str) -> Dict:
 
     return {
         "request_id": request_id,
+        "lat": emergency["lat"],
+        "lng": emergency["lng"],
         "hospitals": hospital_cards,
         "donors_alerted": emergency["donors_alerted"],
         "donors_responded": emergency["donors_responded"],

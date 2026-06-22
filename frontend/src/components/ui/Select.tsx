@@ -1,34 +1,38 @@
-import React, { useId, useState, useRef, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useId } from 'react';
+import { ChevronDown } from 'lucide-react';
 
-export interface SelectProps {
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'> {
   label: string;
-  value: string;
-  onChange: (e: { target: { value: string } }) => void;
   options: { value: string; label: string }[];
   error?: string;
-  className?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
 export const Select: React.FC<SelectProps> = ({
   label,
-  value,
-  onChange,
   options,
   error,
   className = '',
+  value = '',
+  onChange,
+  disabled,
+  placeholder,
+  ...props
 }) => {
   const id = useId();
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const selectedOption = options.find(opt => opt.value === value);
-  const displayLabel = selectedOption ? selectedOption.label : options[0]?.label;
+  // Find the label of the currently selected option
+  const selectedOption = options.find((opt) => opt.value === value);
+  const displayLabel = selectedOption ? selectedOption.label : placeholder || options[0]?.label || '';
 
-  // Close dropdown when clicking outside
+  // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -36,75 +40,109 @@ export const Select: React.FC<SelectProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleSelect = (val: string) => {
+    if (disabled) return;
+    setIsOpen(false);
+    
+    // Trigger synthetic change event to maintain full compatibility with native select onChange logic
+    if (onChange) {
+      const mockEvent = {
+        target: {
+          value: val,
+          name: props.name || '',
+        },
+      } as unknown as React.ChangeEvent<HTMLSelectElement>;
+      onChange(mockEvent);
+    }
+    
+    // Focus back on the button for keyboard accessibility
+    buttonRef.current?.focus();
+  };
+
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
+    if (disabled) return;
+    
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      setIsOpen(true);
+    }
+  };
+
+  const handleListKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, val: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSelect(val);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+      buttonRef.current?.focus();
+    }
+  };
+
   return (
-    <div className="space-y-1.5 w-full relative" ref={dropdownRef}>
+    <div ref={containerRef} className="space-y-1.5 w-full relative">
       <label 
-        htmlFor={id} 
-        className="block text-[10px] font-extrabold text-white/50 uppercase tracking-[0.15em] select-none"
+        id={`${id}-label`}
+        className="block text-xs font-bold text-ink-muted uppercase tracking-wider select-none dark:text-slate-400"
       >
         {label}
       </label>
       
       <div className="relative">
         <button
-          id={id}
+          ref={buttonRef}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className={`w-full h-14 flex items-center justify-between bg-white/5 border border-white/10 hover:border-white/20 focus:border-goldenhour focus:bg-white/10 rounded-xl pl-4 pr-4 text-sm font-bold text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-goldenhour/20 cursor-pointer transition-all backdrop-blur-sm ${
-            error ? 'border-emergency focus:border-emergency focus-visible:ring-red-500/15' : ''
-          } ${className}`}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${id}-error` : undefined}
+          id={id}
+          disabled={disabled}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          onKeyDown={handleKeyDown}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
+          aria-labelledby={`${id}-label ${id}`}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className={`w-full h-14 rounded-xl px-4 text-sm font-bold text-left flex items-center justify-between border-2 transition-all cursor-pointer focus:outline-none focus-visible:ring-4
+            bg-white text-slate-900 border-slate-200 focus:border-[#DC2626] focus-visible:ring-[#DC2626]/20
+            dark:bg-black/40 dark:text-white dark:border-white/10 dark:focus:border-[#DC2626] dark:focus-visible:ring-[#DC2626]/25
+            ${error ? 'border-emergency focus:border-emergency focus-visible:ring-red-500/15 dark:border-emergency' : ''}
+            ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+            ${className}`}
         >
-          <span className={value ? 'text-white' : 'text-white/40'}>
-            {displayLabel}
-          </span>
-          <svg 
-            className={`w-5 h-5 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-          </svg>
+          <span className="truncate">{displayLabel}</span>
+          <ChevronDown className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} />
         </button>
 
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="absolute z-50 w-full mt-2 bg-[#1A1A24] border border-white/10 rounded-xl shadow-xl overflow-hidden backdrop-blur-md"
-              role="listbox"
-            >
-              <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                {options.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="option"
-                    aria-selected={value === opt.value}
-                    className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${
-                      value === opt.value 
-                        ? 'bg-goldenhour/20 text-goldenhour' 
-                        : 'text-white/80 hover:bg-white/10 hover:text-white'
-                    }`}
-                    onClick={() => {
-                      onChange({ target: { value: opt.value } });
-                      setIsOpen(false);
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Dropdown Options List */}
+        {isOpen && (
+          <div 
+            role="listbox"
+            aria-labelledby={`${id}-label`}
+            tabIndex={-1}
+            className="absolute z-50 w-full mt-2 rounded-xl border shadow-[0_8px_32px_rgba(0,0,0,0.18)] max-h-60 overflow-y-auto focus:outline-none py-1
+              bg-white text-slate-900 border-slate-200
+              dark:bg-[#141419] dark:text-white dark:border-white/10"
+          >
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <div
+                  key={opt.value}
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={0}
+                  onClick={() => handleSelect(opt.value)}
+                  onKeyDown={(e) => handleListKeyDown(e, opt.value)}
+                  className={`px-4 py-3 text-sm font-bold cursor-pointer transition-all hover:bg-slate-100 focus:bg-slate-100 focus:outline-none
+                    dark:hover:bg-white/5 dark:focus:bg-white/5
+                    ${isSelected ? 'text-[#DC2626] bg-slate-50 dark:bg-white/5 dark:text-[#DC2626]' : ''}`}
+                >
+                  {opt.label}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
       
       {error && (

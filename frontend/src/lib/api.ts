@@ -3,6 +3,8 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 export interface Hospital {
   hospital_id: string;
   name: string;
+  lat?: number;
+  lng?: number;
   eta_minutes: number;
   department_match: boolean;
   distance_km?: number;
@@ -19,9 +21,13 @@ export interface EmergencyResponse {
 
 export interface EmergencyStatusResponse {
   request_id: string;
+  lat?: number;
+  lng?: number;
   hospitals: Array<{
     hospital_id: string;
     name: string;
+    lat: number;
+    lng: number;
     eta_minutes: number;
     status: 'pending' | 'confirmed' | 'declined';
   }>;

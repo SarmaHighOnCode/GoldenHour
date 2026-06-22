@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
 import { gsap, ScrollTrigger } from '../lib/gsap-setup';
-import { HeroScene } from './three/HeroScene';
-import { TextReveal } from './motion/TextReveal';
-import { CardReveal } from './motion/CardReveal';
 import { CountUp } from './motion/CountUp';
-import { Card } from './ui/Card';
+import { TextReveal } from './motion/TextReveal';
+import { EkgSpine } from './motion/EkgSpine';
+import { HeroCinematicCarousel } from './motion/HeroCinematicCarousel';
+import { HowItWorksCinematic } from './motion/HowItWorksCinematic';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { api } from '../lib/api';
+import { Droplet, Zap, Phone } from 'lucide-react';
+
+// Cinematic slides are now managed inside HeroCinematicCarousel (SOS always first).
 
 export default function PatientIntakeView() {
   const navigate = useNavigate();
@@ -26,14 +29,36 @@ export default function PatientIntakeView() {
   // Form submission states
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSceneLoaded, setIsSceneLoaded] = useState<boolean>(false);
+
+  // Dispatch transition states
+  const [dispatchState, setDispatchState] = useState<'idle' | 'dispatching'>('idle');
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [animationFinished, setAnimationFinished] = useState<boolean>(false);
+  const [prefersReduced, setPrefersReduced] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  // Ref to hold resolved request_id so it can be navigated to after animation finishes
+  const resolvedRequestIdRef = useRef<string | null>(null);
+
+  // Carousel state now lives inside HeroCinematicCarousel component.
 
   // Refs for GSAP animations
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const heroSubRef = useRef<HTMLParagraphElement>(null);
   const scrollHintRef = useRef<HTMLDivElement>(null);
-  const horizontalRef = useRef<HTMLDivElement>(null);
-  const horizontalInnerRef = useRef<HTMLDivElement>(null);
+  const intakeSectionRef = useRef<HTMLElement>(null);
+  const intakeLeftRef = useRef<HTMLDivElement>(null);
+  const intakeRightRef = useRef<HTMLDivElement>(null);
+
+  // Parallax scroll tracking
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+
+  const y = useTransform(scrollYProgress, [0, 1], [0, (prefersReduced || isMobile) ? 0 : 120]);
+  const darkenOpacity = useTransform(scrollYProgress, [0, 1], [0, (prefersReduced || isMobile) ? 0 : 0.6]);
 
   // Trigger Geolocation API
   const handleAcquireLocation = () => {
@@ -69,23 +94,86 @@ export default function PatientIntakeView() {
     if (!isFormValid || !coords) return;
     setIsSubmitting(true);
     setSubmitError(null);
-    try {
-      const data = await api.triggerEmergency(coords.lat, coords.lng, emergencyType, bloodGroup);
-      if (data && data.request_id) {
-        sessionStorage.setItem(`emergency_${data.request_id}`, JSON.stringify({
-          bloodGroup,
-          emergencyType,
-          rareGroup: data.rare_group ?? bloodGroup.endsWith('-')
-        }));
-        navigate(`/results/${data.request_id}`);
-      } else {
-        throw new Error('Invalid request ID returned from server.');
+    resolvedRequestIdRef.current = null;
+    setAnimationFinished(false);
+    setCurrentStep(0);
+    setDispatchState('dispatching');
+
+    // Timer list to clear on cleanup/error
+    const activeTimers: NodeJS.Timeout[] = [];
+
+    // Trigger API call in background
+    const apiCallPromise = api.triggerEmergency(coords.lat, coords.lng, emergencyType, bloodGroup)
+      .then((data) => {
+        if (data && data.request_id) {
+          sessionStorage.setItem(`emergency_${data.request_id}`, JSON.stringify({
+            bloodGroup,
+            emergencyType,
+            rareGroup: data.rare_group ?? bloodGroup.endsWith('-')
+          }));
+          resolvedRequestIdRef.current = data.request_id;
+          return data.request_id;
+        } else {
+          throw new Error('Invalid request ID returned from server.');
+        }
+      });
+
+    if (prefersReduced) {
+      // Reduced motion: navigate immediately when API call finishes
+      try {
+        const requestId = await apiCallPromise;
+        setDispatchState('idle');
+        setIsSubmitting(false);
+        navigate(`/results/${requestId}`);
+      } catch (err: any) {
+        setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
+        setDispatchState('idle');
+        setIsSubmitting(false);
       }
-    } catch (err: any) {
-      setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
+
+    // Standard motion: orchestrate step-by-step checkmarks sequence (1.0s total)
+    // Step 1 checkmark: 300ms
+    activeTimers.push(setTimeout(() => {
+      setCurrentStep(1);
+    }, 300));
+
+    // Step 2 checkmark: 600ms
+    activeTimers.push(setTimeout(() => {
+      setCurrentStep(2);
+    }, 600));
+
+    // Step 3 checkmark: 900ms
+    activeTimers.push(setTimeout(() => {
+      setCurrentStep(3);
+    }, 900));
+
+    // Sequence completion check: 1000ms
+    activeTimers.push(setTimeout(async () => {
+      setAnimationFinished(true);
+      
+      // Wait for API call to complete if it hasn't already
+      try {
+        const requestId = await apiCallPromise;
+        setDispatchState('idle');
+        setIsSubmitting(false);
+        navigate(`/results/${requestId}`);
+      } catch (err: any) {
+        setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
+        setDispatchState('idle');
+        setIsSubmitting(false);
+      }
+    }, 1000));
+
+    // Watch API call concurrently to handle early failures
+    apiCallPromise.catch((err: any) => {
+      // Clear all active timers immediately on error to abort sequence
+      activeTimers.forEach(clearTimeout);
+      setSubmitError(err.message || 'Connection failed. Please verify that the API is online.');
+      setDispatchState('idle');
+      setIsSubmitting(false);
+    });
   };
 
   const typeOptions = [
@@ -104,44 +192,40 @@ export default function PatientIntakeView() {
     { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' }
   ];
 
-  // === GSAP ANIMATIONS ===
+  const stepDetails = [
+    { label: 'Locking GPS', showAtStep: 0 },
+    { label: 'Matching nearest hospital', showAtStep: 1 },
+    { label: 'Broadcasting to donors in range', showAtStep: 2 },
+  ];
 
-  // Hero staggered title reveal
+  // Hero staggered title reveal — re-runs when shouldRenderGlobe settles so the
+  // animation fires AFTER the Suspense swap (which would otherwise trigger ctx.revert).
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      // Title letters stagger
+    // Skip animation if reduced motion is preferred — chars are visible by default,
+    // just ensure no inline transforms are applied.
+    if (prefersReduced) {
       if (heroTitleRef.current) {
-        const text = heroTitleRef.current.textContent || '';
-        const words = text.trim().split(' ');
-        heroTitleRef.current.innerHTML = '';
-        
-        words.forEach((word, wordIdx) => {
-          const wordSpan = document.createElement('span');
-          wordSpan.style.display = 'inline-block';
-          wordSpan.style.whiteSpace = 'nowrap';
-          
-          word.split('').forEach((char) => {
-            const span = document.createElement('span');
-            span.textContent = char;
-            span.style.display = 'inline-block';
-            span.style.opacity = '0';
-            span.style.transform = 'translateY(100%)';
-            wordSpan.appendChild(span);
-          });
-          
-          heroTitleRef.current!.appendChild(wordSpan);
-          if (wordIdx < words.length - 1) {
-            heroTitleRef.current!.appendChild(document.createTextNode(' '));
-          }
-        });
+        const chars = heroTitleRef.current.querySelectorAll<HTMLElement>('.char-span');
+        chars.forEach(c => { c.style.transform = 'none'; });
+      }
+      if (heroSubRef.current) heroSubRef.current.style.opacity = '1';
+      if (scrollHintRef.current) scrollHintRef.current.style.opacity = '1';
+      return;
+    }
 
-        gsap.to(heroTitleRef.current.querySelectorAll('span > span'), {
-          opacity: 1,
+    const ctx = gsap.context(() => {
+      // Title letters stagger — use y transform reveal (word-spans have overflow:hidden)
+      // so chars slide up into view without needing opacity at all,
+      // preserving the parent text-gradient clip.
+      if (heroTitleRef.current) {
+        const chars = heroTitleRef.current.querySelectorAll('.char-span');
+        gsap.set(chars, { y: '110%' });
+        gsap.to(chars, {
           y: 0,
-          duration: 0.8,
+          duration: 0.7,
           stagger: 0.03,
           ease: 'power3.out',
-          delay: 0.3,
+          delay: 0.2,
         });
       }
 
@@ -163,93 +247,146 @@ export default function PatientIntakeView() {
     });
 
     return () => ctx.revert();
-  }, []);
+  // Re-runs when prefersReduced changes so animation respects motion preference.
+  }, [prefersReduced]);
 
-  // Horizontal scroll section
+  // Intake section scroll-driven entrance animation (3D tilt reveal)
   useEffect(() => {
-    const section = horizontalRef.current;
-    const inner = horizontalInnerRef.current;
-    if (!section || !inner) return;
+    if (prefersReduced) return;
+
+    const section = intakeSectionRef.current;
+    const leftEl = intakeLeftRef.current;
+    const rightEl = intakeRightRef.current;
+
+    if (!section || !leftEl || !rightEl) return;
+
+    // Set perspective on the parent container to enable 3D transforms
+    gsap.set(section, { perspective: 1000 });
 
     const ctx = gsap.context(() => {
-      const cards = inner.children;
-      const totalWidth = inner.scrollWidth - section.offsetWidth;
+      // Left description column: slide in from left and fade in
+      gsap.fromTo(leftEl,
+        { opacity: 0, x: -50 },
+        {
+          opacity: 1,
+          x: 0,
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 85%',
+            end: 'top 45%',
+            scrub: 1,
+          }
+        }
+      );
 
-      gsap.to(inner, {
-        x: -totalWidth,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: section,
-          start: 'top top',
-          end: () => `+=${totalWidth}`,
-          scrub: 1,
-          pin: true,
-          anticipatePin: 1,
+      // Right dispatch console: 3D rotate entry, scale up, and slide up
+      gsap.fromTo(rightEl,
+        {
+          opacity: 0,
+          y: 100,
+          scale: 0.93,
+          transformOrigin: '50% 50%',
+          rotationX: 12,
+          rotationY: -8,
         },
-      });
-    });
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          rotationX: 0,
+          rotationY: 0,
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 85%',
+            end: 'top 40%',
+            scrub: 1,
+          }
+        }
+      );
+    }, section);
 
     return () => ctx.revert();
-  }, []);
+  }, [prefersReduced]);
+
+  const containerVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.15,
+      }
+    }
+  };
+
+  const cardVariants = {
+    hidden: prefersReduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: 'easeOut'
+      }
+    }
+  };
 
   return (
     <div className="w-full">
-      
-      {/* Real-time WebGL shader preloader overlay */}
-      <AnimatePresence>
-        {!isSceneLoaded && (
-          <motion.div
-            key="preloader"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 bg-[#14141A] z-[99999] flex flex-col items-center justify-center space-y-6"
-            style={{ pointerEvents: 'auto' }}
-          >
-            <div className="flex flex-col items-center max-w-sm text-center px-6">
-              {/* Pulse heartbeat SVG */}
-              <svg className="w-12 h-12 text-emergency animate-pulse mb-6" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-              </svg>
-              <h2 className="font-display font-bold text-sm text-dark-ink uppercase tracking-[0.25em] leading-snug">
-                Compiling Volumetric Shaders
-              </h2>
-              <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden mt-5 relative">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: "100%" }}
-                  transition={{ duration: 1.2, ease: "easeInOut" }}
-                  className="h-full bg-gradient-to-r from-emergency to-goldenhour" 
-                />
-              </div>
-              <p className="text-[9px] text-dark-ink-muted uppercase tracking-[0.2em] mt-5 animate-pulse">
-                Preloading GPU Textures...
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <EkgSpine />
+
 
       {/* =============================================
           SECTION 1: HERO — Full screen dark canvas
           ============================================= */}
-      <section className="editorial-section glow-amber glow-crimson grid-overlay relative">
-        {/* Three.js particle canvas with shader compile feedback callback */}
-        <HeroScene onLoaded={() => setIsSceneLoaded(true)} />
+      <section ref={heroRef} className="min-h-[80vh] flex items-center justify-center glow-amber glow-crimson relative overflow-hidden pt-20 pb-12 md:pt-28 md:pb-16">
+        {/* Background Canvas: Cinematic carousel (always) + optional 3D Globe overlay on desktop */}
+        {/* Carousel always visible — globe renders on top for desktop/WebGL capable devices */}
+        <motion.div style={{ y }} className="absolute inset-0 z-0">
+          <HeroCinematicCarousel />
+        </motion.div>
 
-        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto space-y-8">
+
+
+        {/* Dark Ambient Overlays (Layer 1-5 + scroll fade) - Always rendered to keep copy legible */}
+        <div className="absolute inset-0 z-[1] bg-[#0A0A0F]/45 pointer-events-none" />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-b from-[#0A0A0F]/80 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-t from-[#0A0A0F] via-[#0A0A0F]/20 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 z-[3] pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 45%, rgba(10,10,15,0.6) 0%, transparent 100%)' }} />
+        <div className="absolute inset-0 z-[3] pointer-events-none" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 80%, rgba(220,38,38,0.18) 0%, transparent 70%)' }} />
+        <motion.div style={{ opacity: darkenOpacity }} className="absolute inset-0 z-[4] bg-[#0A0A0F] pointer-events-none" />
+
+        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto space-y-6">
           {/* Giant display title */}
           <h1
             ref={heroTitleRef}
             className="text-display-xl text-gradient overflow-hidden"
+            style={{ filter: 'drop-shadow(0 2px 20px rgba(0,0,0,0.8))' }}
           >
-            Every Second Counts
+            {(() => {
+              const text = "Every Second Counts";
+              const words = text.split(' ');
+              return words.map((word, wordIdx) => (
+                <span key={wordIdx} className="word-span inline-block" style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                  {word.split('').map((char, charIdx) => (
+                    <span
+                      key={charIdx}
+                      className="char-span inline-block"
+                    >
+                      {char}
+                    </span>
+                  ))}
+                  {wordIdx < words.length - 1 && (
+                    <span className="inline-block">&nbsp;</span>
+                  )}
+                </span>
+              ));
+            })()}
           </h1>
 
           {/* Subtitle */}
           <p
             ref={heroSubRef}
             className="text-display-md text-dark-ink-muted max-w-2xl mx-auto opacity-0"
+            style={{ textShadow: '0 1px 12px rgba(0,0,0,0.9)' }}
           >
             Smart emergency dispatch. Nearest hospital. Matched blood donors.
             <span className="text-goldenhour font-bold"> All in real time.</span>
@@ -262,26 +399,25 @@ export default function PatientIntakeView() {
             transition={{ delay: 1.8, duration: 0.8 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
           >
-            <a
+            <Button
               href="#intake"
-              className="inline-flex items-center justify-center gap-3 h-14 px-10 bg-gradient-to-r from-emergency to-emergency-pressed text-white rounded-2xl font-bold text-sm tracking-wider uppercase transition-all duration-300 hover:scale-105 active:scale-[0.98] shadow-lg shadow-emergency/20 animate-pulse-glow"
+              variant="emergency"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+              <Zap className="w-5 h-5 text-white" />
               Get Help Now
-            </a>
-            <Link
+            </Button>
+            <Button
               to="/register"
-              className="inline-flex items-center justify-center gap-2 h-14 px-10 border border-white/15 text-dark-ink hover:bg-white/5 rounded-2xl font-bold text-sm tracking-wider uppercase transition-all duration-300"
+              variant="secondary"
             >
-              🩸 Register as Donor
-            </Link>
+              <Droplet className="w-5 h-5 text-goldenhour" />
+              Register as Donor
+            </Button>
           </motion.div>
         </div>
 
         {/* Scroll hint */}
-        <div ref={scrollHintRef} className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-0">
+        <div ref={scrollHintRef} className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-0">
           <span className="text-[10px] text-dark-ink-muted uppercase tracking-[0.3em] font-semibold">Scroll</span>
           <div className="w-5 h-8 border border-white/20 rounded-full flex items-start justify-center p-1.5">
             <div className="w-1 h-2 bg-goldenhour rounded-full animate-scroll-hint" />
@@ -292,8 +428,8 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 2: PROBLEM STATEMENT — Text reveals
           ============================================= */}
-      <section className="editorial-section px-6 glow-crimson">
-        <div className="max-w-4xl mx-auto space-y-16">
+      <section id="problem-statement" className="py-12 md:py-16 px-6 glow-crimson relative overflow-hidden flex items-center justify-center">
+        <div className="max-w-4xl mx-auto space-y-8">
           <TextReveal
             as="h2"
             className="text-display-lg text-dark-ink leading-tight"
@@ -319,17 +455,20 @@ export default function PatientIntakeView() {
       {/* =============================================
           SECTION 3: INTAKE CONSOLE — Pinned booking form
           ============================================= */}
-      <section id="intake" className="py-32 px-6 relative glow-amber">
+      <section id="intake" ref={intakeSectionRef} className="py-12 md:py-16 px-6 relative glow-amber">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
           {/* Left: Descriptive text */}
-          <CardReveal direction="left" className="space-y-6">
+          <div
+            ref={intakeLeftRef}
+            className="space-y-6"
+          >
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-emergency/10 border border-emergency/20 rounded-full">
               <span className="w-2 h-2 rounded-full bg-emergency animate-pulse" />
-              <span className="text-[10px] font-black text-emergency uppercase tracking-widest">Emergency Console</span>
+              <span className="text-[10px] font-black text-emergency uppercase tracking-widest">Live Dispatch</span>
             </div>
             <h2 className="text-display-lg text-dark-ink">
-              Lock. Dispatch. <span className="text-gradient">Save.</span>
+              Lock. Dispatch. <span className="text-white/90">Save.</span>
             </h2>
             <p className="text-base text-dark-ink-muted leading-relaxed max-w-md">
               Pin your GPS coordinates, select the emergency type and blood group needed, then hit dispatch. We route the request to the closest matching hospital and alert nearby donors instantly.
@@ -348,248 +487,179 @@ export default function PatientIntakeView() {
                 <span className="text-xs font-semibold">Donor Alert</span>
               </div>
             </div>
-          </CardReveal>
+          </div>
 
           {/* Right: Intake Form Card */}
-          <CardReveal direction="right" delay={0.15}>
-            <div className="relative rounded-2xl overflow-hidden" style={{
-              background: 'linear-gradient(145deg, rgba(30, 30, 45, 0.95) 0%, rgba(18, 18, 28, 0.98) 100%)',
-              boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(220,38,38,0.08), inset 0 1px 0 rgba(255,255,255,0.08)',
-            }}>
-              {/* Top accent bar */}
-              <div className="h-[3px] w-full bg-gradient-to-r from-transparent via-emergency to-transparent" />
-              
-              {/* Inner content */}
-              <div className="px-8 py-9 space-y-6">
-                {/* Header */}
-                <div className="text-center space-y-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emergency/10 border border-emergency/15 mx-auto">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emergency animate-pulse" />
-                    <span className="text-[9px] font-extrabold text-emergency uppercase tracking-[0.2em]">Live Dispatch</span>
-                  </div>
-                  <h3 className="text-2xl font-black tracking-tight text-white">Emergency Dispatch</h3>
-                  <p className="text-xs text-white/40">Secure your location and select emergency details.</p>
-                </div>
+          <div
+            ref={intakeRightRef}
+          >
+            <div className="glass-card p-8 space-y-5 relative animate-pulse-glow">
+              {/* Top accent */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emergency via-goldenhour to-emergency rounded-t-3xl" />
 
-                {/* Divider */}
-                <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              {/* Header */}
+              <div className="text-center space-y-2 pt-2">
+                <h3 className="text-xl font-black tracking-tight text-dark-ink">Emergency Dispatch</h3>
+                <p className="text-xs text-dark-ink-muted">Secure your location and select emergency details.</p>
+              </div>
 
-                {/* Location Button */}
-                <div className="space-y-3">
-                  <label className="block text-[10px] font-extrabold text-white/50 uppercase tracking-[0.15em]">Patient Location</label>
-                  <button
-                    type="button"
-                    onClick={handleAcquireLocation}
-                    disabled={locating}
-                    className={`w-full h-14 flex items-center justify-center gap-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
-                      coords 
-                        ? 'bg-success/15 border border-success/30 text-success' 
-                        : 'bg-white/[0.04] border border-white/[0.08] text-white/80 hover:bg-white/[0.08] hover:border-white/[0.15]'
-                    }`}
-                  >
-                    {locating ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-5 w-5 text-current" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Acquiring...
-                      </span>
-                    ) : coords ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        Location Locked
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-white/40" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Pin Current Location
-                      </span>
-                    )}
-                  </button>
-
-                  {!coords && !locating && (
-                    <div className="text-center">
-                      <button
-                        type="button"
-                        onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }}
-                        className="text-[11px] text-white/30 hover:text-goldenhour transition-colors font-medium underline cursor-pointer"
-                      >
-                        Or use demo location (Jaipur)
-                      </button>
-                    </div>
-                  )}
-
-                  <AnimatePresence mode="wait">
-                    {coords && (
-                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                        className="bg-success/5 border border-success/15 rounded-xl p-3 text-center"
-                      >
-                        <p className="text-xs font-semibold text-success/80">Coordinates Secured</p>
-                        <p className="text-[11px] font-mono text-white/30 mt-0.5">Lat: {coords.lat} · Lng: {coords.lng}</p>
-                        <button type="button" onClick={() => setCoords(null)} className="text-[10px] text-emergency/70 hover:text-emergency underline font-bold mt-1.5 cursor-pointer">Clear</button>
-                      </motion.div>
-                    )}
-                    {locationError && (
-                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                        className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center space-y-2" role="alert"
-                      >
-                        <p className="text-xs font-bold text-emergency">{locationError}</p>
-                        <div className="flex items-center justify-center gap-3">
-                          <button type="button" onClick={handleAcquireLocation} className="text-xs text-emergency font-extrabold underline cursor-pointer">Retry</button>
-                          <span className="text-xs text-white/15">|</span>
-                          <button type="button" onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }} className="text-xs text-success font-extrabold underline cursor-pointer">Demo Location</button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Selects */}
-                <Select label="Emergency type" value={emergencyType} onChange={(e) => setEmergencyType(e.target.value)} options={typeOptions} />
-                <Select label="Blood group needed" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} options={bloodOptions} />
-
-                {submitError && (
-                  <div className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center text-xs font-bold text-emergency" role="alert">{submitError}</div>
-                )}
-
-                {/* Dispatch Button */}
-                <button
+              {/* Location Button */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-dark-ink-muted uppercase tracking-wider">Patient Location</label>
+                <Button
                   type="button"
-                  onClick={dispatchEmergency}
-                  disabled={!isFormValid || isSubmitting}
-                  className="w-full h-14 flex items-center justify-center gap-2.5 rounded-xl font-extrabold uppercase tracking-wider text-sm text-white cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
-                  style={{
-                    background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
-                    boxShadow: isFormValid ? '0 8px 32px rgba(220,38,38,0.35), inset 0 1px 0 rgba(255,255,255,0.12)' : 'none',
-                  }}
+                  onClick={handleAcquireLocation}
+                  isLoading={locating}
+                  variant={coords ? 'success' : 'ghost'}
+                  fullWidth
+                  aria-label={coords ? "Location secured" : "Pin my current location"}
+                  className="transition-all duration-300 h-14 rounded-xl"
                 >
-                  {isSubmitting ? (
+                  {coords ? (
                     <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Processing...
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      Location Locked
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      GET HELP NOW
+                      Pin Current Location
                     </span>
                   )}
-                </button>
+                </Button>
+
+                {!coords && !locating && (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }}
+                      className="text-[11px] text-dark-ink-muted hover:text-goldenhour transition-colors font-medium underline cursor-pointer"
+                    >
+                      Or use demo location (Jaipur)
+                    </button>
+                  </div>
+                )}
+
+                <AnimatePresence mode="wait">
+                  {coords && (
+                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="bg-white/5 border border-white/10 rounded-xl p-3 text-center"
+                    >
+                      <p className="text-xs font-semibold text-dark-ink-muted">Coordinates Secured</p>
+                      <p className="text-[11px] font-mono text-dark-ink-muted/60 mt-0.5">Lat: {coords.lat} · Lng: {coords.lng}</p>
+                      <button type="button" onClick={() => setCoords(null)} className="text-[10px] text-emergency hover:text-emergency-pressed underline font-bold mt-1.5 cursor-pointer">Clear</button>
+                    </motion.div>
+                  )}
+                  {locationError && (
+                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center space-y-2" role="alert"
+                    >
+                      <p className="text-xs font-bold text-emergency">{locationError}</p>
+                      <div className="flex items-center justify-center gap-3">
+                        <button type="button" onClick={handleAcquireLocation} className="text-xs text-emergency font-extrabold underline cursor-pointer">Retry</button>
+                        <span className="text-xs text-dark-ink-muted/30">|</span>
+                        <button type="button" onClick={() => { setCoords({ lat: 26.9124, lng: 75.7873 }); setLocationError(null); }} className="text-xs text-success font-extrabold underline cursor-pointer">Demo Location</button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
+
+              {/* Selects */}
+              <Select label="Emergency type" value={emergencyType} onChange={(e) => setEmergencyType(e.target.value)} options={typeOptions} />
+              <Select label="Blood group needed" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} options={bloodOptions} />
+
+              {submitError && (
+                <div className="bg-emergency/10 border border-emergency/20 rounded-xl p-3 text-center text-xs font-bold text-emergency" role="alert">{submitError}</div>
+              )}
+
+              {/* Dispatch Button */}
+              <Button
+                type="button"
+                onClick={dispatchEmergency}
+                variant="emergency"
+                disabled={!isFormValid || isSubmitting}
+                isLoading={isSubmitting}
+                fullWidth
+                className="mt-2"
+              >
+                <span className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-white" />
+                  GET HELP NOW
+                </span>
+              </Button>
             </div>
-          </CardReveal>
+          </div>
 
         </div>
       </section>
 
       {/* =============================================
-          SECTION 4: HOW IT WORKS — Horizontal scroll
+          SECTION 4: HOW IT WORKS — Cinematic scroll
           ============================================= */}
-      <section ref={horizontalRef} id="how-it-works" className="relative overflow-hidden" style={{ height: '100vh' }}>
-        <div className="absolute top-0 left-0 w-full py-12 px-6 z-10">
-          <div className="max-w-6xl mx-auto">
-            <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-2">How It Works</p>
-            <h2 className="text-display-lg text-dark-ink">Three steps. <span className="text-gradient">Zero delay.</span></h2>
-          </div>
-        </div>
-
-        <div ref={horizontalInnerRef} className="flex items-center gap-8 px-6 absolute top-1/2 -translate-y-1/2" style={{ width: 'max-content', paddingLeft: '10vw', paddingRight: '10vw' }}>
-          {/* Step 1 */}
-          <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
-            <div>
-              <div className="text-5xl mb-4">📍</div>
-              <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em] mb-1">Step 01</p>
-              <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Lock Location</h3>
-              <p className="text-sm text-dark-ink-muted leading-relaxed">
-                Your browser GPS pins your exact coordinates. High-accuracy mode ensures precision even in dense urban areas.
-              </p>
-            </div>
-            <div className="h-1 bg-gradient-to-r from-goldenhour to-transparent rounded-full mt-4" />
-          </div>
-
-          {/* Step 2 */}
-          <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
-            <div>
-              <div className="text-5xl mb-4">🏥</div>
-              <p className="text-[10px] font-black text-emergency uppercase tracking-[0.3em] mb-1">Step 02</p>
-              <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Smart Dispatch</h3>
-              <p className="text-sm text-dark-ink-muted leading-relaxed">
-                Our algorithm matches your emergency type to the nearest hospital with the right department and available bed capacity.
-              </p>
-            </div>
-            <div className="h-1 bg-gradient-to-r from-emergency to-transparent rounded-full mt-4" />
-          </div>
-
-          {/* Step 3 */}
-          <div className="glass-card p-10 w-[400px] h-[360px] flex flex-col justify-between shrink-0">
-            <div>
-              <div className="text-5xl mb-4">🩸</div>
-              <p className="text-[10px] font-black text-success uppercase tracking-[0.3em] mb-1">Step 03</p>
-              <h3 className="text-2xl font-bold text-dark-ink mb-3 font-display">Donor Alert</h3>
-              <p className="text-sm text-dark-ink-muted leading-relaxed">
-                Every registered blood donor matching your blood type within range receives an instant alert with your location coordinates.
-              </p>
-            </div>
-            <div className="h-1 bg-gradient-to-r from-success to-transparent rounded-full mt-4" />
-          </div>
-        </div>
-      </section>
+      <HowItWorksCinematic />
 
       {/* =============================================
           SECTION 5: STATS — Animated counters
           ============================================= */}
-      <section className="editorial-section px-6">
+      <section className="py-12 md:py-16 px-6 relative overflow-hidden flex items-center justify-center">
         <div className="max-w-5xl mx-auto w-full">
-          <div className="text-center space-y-4 mb-20">
+          <motion.div
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="text-center space-y-3 mb-10"
+          >
             <p className="text-[10px] font-black text-goldenhour uppercase tracking-[0.3em]">By The Numbers</p>
-            <h2 className="text-display-lg text-dark-ink">Built for speed. <span className="text-gradient">Designed for trust.</span></h2>
-          </div>
+            <h2 className="text-display-lg text-dark-ink">Built for speed. <span className="text-white/90">Designed for trust.</span></h2>
+          </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <CardReveal className="glass-card p-8 text-center space-y-3" delay={0}>
-              <div className="text-5xl font-display font-bold text-gradient">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-10% 0px" }}
+            className="grid grid-cols-1 sm:grid-cols-3 gap-8"
+          >
+            <motion.div variants={cardVariants} className="glass-card p-8 text-center space-y-3">
+              <div className="text-5xl font-display font-bold text-goldenhour">
                 <CountUp end={6} prefix="< " suffix=" min" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Average Response</p>
               <p className="text-xs text-dark-ink-muted">From dispatch to hospital confirmation</p>
-            </CardReveal>
+            </motion.div>
 
-            <CardReveal className="glass-card p-8 text-center space-y-3" delay={0.1}>
-              <div className="text-5xl font-display font-bold text-gradient">
-                24/7
+            <motion.div variants={cardVariants} className="glass-card p-8 text-center space-y-3">
+              <div className="text-5xl font-display font-bold text-goldenhour">
+                <CountUp end={24} suffix="/7" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Always On</p>
               <p className="text-xs text-dark-ink-muted">Real-time websocket sync, polling fallback</p>
-            </CardReveal>
+            </motion.div>
 
-            <CardReveal className="glass-card p-8 text-center space-y-3" delay={0.2}>
-              <div className="text-5xl font-display font-bold text-gradient">
+            <motion.div variants={cardVariants} className="glass-card p-8 text-center space-y-3">
+              <div className="text-5xl font-display font-bold text-goldenhour">
                 <CountUp end={100} suffix="%" />
               </div>
               <p className="text-sm font-semibold text-dark-ink">Open Source</p>
               <p className="text-xs text-dark-ink-muted">Transparent, auditable, community-driven</p>
-            </CardReveal>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* =============================================
           SECTION 6: CTA FOOTER
           ============================================= */}
-      <section className="py-32 px-6 relative">
-        <div className="max-w-3xl mx-auto text-center space-y-10">
+      <section id="cta-footer" className="py-12 md:py-16 px-6 relative">
+        <div className="max-w-3xl mx-auto text-center space-y-8">
           <TextReveal
             as="h2"
-            className="text-display-lg text-dark-ink"
+            className="text-display-lg text-gradient"
             stagger={0.04}
             start="top 80%"
             end="top 50%"
@@ -597,26 +667,33 @@ export default function PatientIntakeView() {
             When someone you love needs help, every second is a lifetime.
           </TextReveal>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <a
+          <motion.div
+            initial={prefersReduced ? {} : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10% 0px" }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: prefersReduced ? 0 : 0.15 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
+          >
+            <Button
               href="tel:112"
-              className="inline-flex items-center justify-center gap-3 h-16 px-12 bg-gradient-to-r from-emergency to-emergency-pressed text-white rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 hover:scale-105 active:scale-[0.98] shadow-lg shadow-emergency/25"
+              variant="emergency"
+              size="lg"
             >
-              <svg className="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
+              <Phone className="w-6 h-6 text-white animate-pulse" />
               Call 112
-            </a>
-            <Link
+            </Button>
+            <Button
               to="/register"
-              className="inline-flex items-center justify-center gap-3 h-16 px-12 border-2 border-goldenhour text-goldenhour hover:bg-goldenhour/10 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300"
+              variant="secondary"
+              size="lg"
             >
-              🩸 Become a Donor
-            </Link>
-          </div>
+              <Droplet className="w-6 h-6 text-goldenhour" />
+              Become a Donor
+            </Button>
+          </motion.div>
 
           {/* Heartbeat line */}
-          <div className="pt-16">
+          <div className="pt-10">
             <svg viewBox="0 0 400 40" className="w-full max-w-md mx-auto opacity-20">
               <polyline
                 points="0,20 60,20 80,5 100,35 120,10 140,30 160,20 400,20"
@@ -645,6 +722,128 @@ export default function PatientIntakeView() {
           </p>
         </div>
       </section>
+
+      {/* Full-screen Dispatching Overlay */}
+      <AnimatePresence>
+        {dispatchState === 'dispatching' && (
+          prefersReduced ? (
+            <div className="fixed inset-0 bg-[#0A0A0F]/98 flex items-center justify-center z-[99999]">
+              <div className="text-center space-y-4">
+                <h2 className="text-xl font-bold tracking-wider text-white">Dispatching...</h2>
+                <p className="text-sm text-dark-ink-muted">Connecting with emergency response teams.</p>
+              </div>
+            </div>
+          ) : (
+            <motion.div
+              key="dispatch-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+              className="fixed inset-0 bg-[#0A0A0F]/98 backdrop-blur-md flex flex-col items-center justify-center z-[99999] overflow-hidden"
+              style={{ pointerEvents: 'auto' }}
+            >
+              {/* Conic sweep + Expanding rings */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                <div 
+                  className="w-[550px] h-[550px] rounded-full animate-radar-rotate opacity-20"
+                  style={{
+                    background: 'conic-gradient(from 0deg, rgba(220, 38, 38, 0) 40%, rgba(220, 38, 38, 0.45) 100%)',
+                  }}
+                />
+                <div className="absolute w-[500px] h-[500px] rounded-full border border-red-600/20 animate-radar-ring" style={{ animationDelay: '0s' }} />
+                <div className="absolute w-[500px] h-[500px] rounded-full border border-red-600/20 animate-radar-ring" style={{ animationDelay: '1s' }} />
+                <div className="absolute w-[500px] h-[500px] rounded-full border border-red-600/20 animate-radar-ring" style={{ animationDelay: '2s' }} />
+                
+                <div className="absolute w-[150px] h-[150px] rounded-full border border-red-600/10" />
+                <div className="absolute w-[300px] h-[300px] rounded-full border border-red-600/10" />
+                <div className="absolute w-[450px] h-[450px] rounded-full border border-red-600/10" />
+                
+                <div className="absolute w-[600px] h-[1px] bg-red-600/10" />
+                <div className="absolute h-[600px] w-[1px] bg-red-600/10" />
+              </div>
+
+              {/* Content container */}
+              <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6 text-center space-y-10">
+                {/* Floating pulse beacon representing patient */}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute w-14 h-14 rounded-full bg-emergency/30 animate-ping" />
+                  <div className="relative w-10 h-10 rounded-full bg-emergency flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.7)]">
+                    <Zap className="w-5 h-5 text-white fill-white animate-pulse" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black tracking-widest text-white uppercase">Broadcasting SOS</h3>
+                  <p className="text-xs text-dark-ink-muted">Do not close this page. Securing medical response.</p>
+                </div>
+
+                {/* Dispatch steps checklist */}
+                <div className="w-full space-y-4 text-left">
+                  {stepDetails.map((step, idx) => {
+                    const isVisible = currentStep >= step.showAtStep;
+                    const isCompleted = currentStep > idx;
+                    const isActive = currentStep === idx;
+
+                    return (
+                      <div key={step.label} className="min-h-[64px]">
+                        <AnimatePresence>
+                          {isVisible && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 15 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                              className="flex items-center gap-4 bg-white/[0.02] border border-white/[0.05] backdrop-blur-sm p-4 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
+                            >
+                              {/* Status Indicator */}
+                              <div className="flex-shrink-0">
+                                {isCompleted ? (
+                                  <motion.div
+                                    initial={{ scale: 0.5, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                    className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center"
+                                  >
+                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </motion.div>
+                                ) : isActive ? (
+                                  <div className="relative w-6 h-6 flex items-center justify-center">
+                                    <div className="absolute w-5 h-5 rounded-full bg-emergency/35 animate-ping" />
+                                    <div className="w-3 h-3 rounded-full bg-emergency shadow-[0_0_8px_rgba(220,38,38,0.8)]" />
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center">
+                                    <div className="w-2 h-2 rounded-full bg-white/20" />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Step label */}
+                              <div className="flex-1">
+                                <span className={`text-sm font-semibold tracking-wide ${isCompleted ? 'text-white/60 line-through decoration-emerald-500/40' : isActive ? 'text-white' : 'text-white/30'}`}>
+                                  {step.label}
+                                </span>
+                                {isActive && (
+                                  <span className="block text-[10px] text-goldenhour font-bold uppercase tracking-widest mt-0.5 animate-pulse">
+                                    In Progress...
+                                  </span>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )
+        )}
+      </AnimatePresence>
 
     </div>
   );

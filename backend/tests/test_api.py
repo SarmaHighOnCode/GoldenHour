@@ -41,6 +41,8 @@ def test_emergency_returns_contract_shape(client):
     assert set(card) == {
         "hospital_id",
         "name",
+        "lat",
+        "lng",
         "eta_minutes",
         "department_match",
         "distance_km",
@@ -92,6 +94,8 @@ def test_status_shape(client):
     body = client.get(f"/emergency/{request_id}/status").json()
     assert set(body) == {
         "request_id",
+        "lat",
+        "lng",
         "hospitals",
         "donors_alerted",
         "donors_responded",
@@ -101,7 +105,7 @@ def test_status_shape(client):
     # Freshly created — well inside the no-confirmation window.
     assert body["unconfirmed_fallback"] is False
     card = body["hospitals"][0]
-    assert set(card) == {"hospital_id", "name", "eta_minutes", "status"}
+    assert set(card) == {"hospital_id", "name", "lat", "lng", "eta_minutes", "status"}
 
 
 # --- POST /confirm/{token} — the live flow --------------------------------

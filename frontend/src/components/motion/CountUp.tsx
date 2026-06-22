@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { gsap, ScrollTrigger } from '../../lib/gsap-setup';
+import { useInView, animate, useMotionValue, useReducedMotion } from 'framer-motion';
 
 interface CountUpProps {
   end: number;
@@ -12,52 +12,44 @@ interface CountUpProps {
 
 /**
  * Animated number counter that counts from 0 to target value
- * when scrolled into view via GSAP ScrollTrigger.
+ * when scrolled into view via Framer Motion's useInView.
  */
 export const CountUp: React.FC<CountUpProps> = ({
   end,
   prefix = '',
   suffix = '',
-  duration = 2,
+  duration = 0.5,
   className = '',
   decimals = 0,
 }) => {
   const ref = useRef<HTMLSpanElement>(null);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const isInView = useInView(ref, { once: true, margin: "-10% 0px" });
+  const count = useMotionValue(0);
+  const [display, setDisplay] = useState(0);
+  const prefersReduced = useReducedMotion();
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el || hasAnimated) return;
+    if (!isInView) return;
 
-    const counter = { value: 0 };
+    if (prefersReduced) {
+      setDisplay(end);
+      return;
+    }
 
-    ScrollTrigger.create({
-      trigger: el,
-      start: 'top 85%',
-      once: true,
-      onEnter: () => {
-        setHasAnimated(true);
-        gsap.to(counter, {
-          value: end,
-          duration,
-          ease: 'power2.out',
-          onUpdate: () => {
-            el.textContent = `${prefix}${counter.value.toFixed(decimals)}${suffix}`;
-          },
-        });
-      },
+    const controls = animate(count, end, {
+      duration,
+      ease: 'easeOut',
+      onUpdate: (latest) => {
+        setDisplay(latest);
+      }
     });
 
-    return () => {
-      ScrollTrigger.getAll().forEach(st => {
-        if (st.trigger === el) st.kill();
-      });
-    };
-  }, [end, prefix, suffix, duration, decimals, hasAnimated]);
+    return () => controls.stop();
+  }, [isInView, end, duration, prefersReduced]);
 
   return (
     <span ref={ref} className={className}>
-      {prefix}0{suffix}
+      {prefix}{display.toFixed(decimals)}{suffix}
     </span>
   );
 };
