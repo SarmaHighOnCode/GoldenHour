@@ -10,7 +10,6 @@ import PatientIntakeView from './components/PatientIntakeView';
 import PatientResultsView from './components/PatientResultsView';
 import HospitalConfirmPage from './components/HospitalConfirmPage';
 import DonorRegistration from './components/DonorRegistration';
-import { BootSequence } from './components/motion/BootSequence';
 import { gsap, ScrollTrigger } from './lib/gsap-setup';
 
 // Shared premium page entry animation wrapper
@@ -33,10 +32,6 @@ function AppContent({ prefersReduced }: { prefersReduced: boolean }) {
   const isHome = location.pathname === '/';
   const isRegister = location.pathname === '/register';
   const isHospitalConfirm = location.pathname.startsWith('/confirm/');
-
-  const [isBooting, setIsBooting] = useState(() => {
-    return !sessionStorage.getItem('gh_booted');
-  });
 
   // Dark theme for home and donor registration
   const theme = isHome || isRegister ? 'dark' : 'light';
@@ -73,14 +68,6 @@ function AppContent({ prefersReduced }: { prefersReduced: boolean }) {
           : 'bg-bg-warm text-ink'
       }`}
     >
-      {isHome && isBooting && (
-        <BootSequence
-          onComplete={() => {
-            sessionStorage.setItem('gh_booted', 'true');
-            setIsBooting(false);
-          }}
-        />
-      )}
       <CustomCursor />
       {/* GoldenHour sunset gradient branding line */}
       {!(isHome || isRegister) && (
