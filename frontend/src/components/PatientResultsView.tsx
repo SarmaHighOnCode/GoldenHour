@@ -704,40 +704,45 @@ export default function PatientResultsView() {
   }, [statusLat, statusLng, hospitals, prefersReduced]);
 
   const handleShowDirections = (hospital: Hospital) => {
-    const map = mapInstanceRef.current;
-    if (map) {
-      const patientLat = statusLat ?? 26.9124;
-      const patientLng = statusLng ?? 75.7873;
-      
-      let hLat = hospital.lat;
-      let hLng = hospital.lng;
-      
-      const jaipurHospCoords: Record<string, [number, number]> = {
-        "h1": [26.9036, 75.8147],
-        "h2": [26.8569, 75.8064],
-        "h3": [26.8853, 75.7470],
-      };
-      
-      if (!hLat || !hLng) {
-        const coords = jaipurHospCoords[hospital.hospital_id];
-        if (coords) {
-          hLat = coords[0];
-          hLng = coords[1];
-        }
-      }
-      
-      if (hLat && hLng) {
-        const bounds = L.latLngBounds([[patientLat, patientLng], [hLat, hLng]]);
-        map.fitBounds(bounds, {
-          padding: [80, 80],
-          animate: !prefersReduced,
-          duration: prefersReduced ? 0 : 1.0
-        });
+    const patientLat = statusLat ?? 26.9124;
+    const patientLng = statusLng ?? 75.7873;
 
-        const marker = hospitalMarkersRef.current[hospital.hospital_id];
-        if (marker) {
-          marker.openPopup();
-        }
+    let hLat = hospital.lat;
+    let hLng = hospital.lng;
+
+    const jaipurHospCoords: Record<string, [number, number]> = {
+      "h1": [26.9036, 75.8147],
+      "h2": [26.8569, 75.8064],
+      "h3": [26.8853, 75.7470],
+    };
+
+    if (!hLat || !hLng) {
+      const coords = jaipurHospCoords[hospital.hospital_id];
+      if (coords) {
+        hLat = coords[0];
+        hLng = coords[1];
+      }
+    }
+
+    // Open Google Maps Directions in a new tab (driving mode)
+    if (hLat && hLng) {
+      const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${patientLat},${patientLng}&destination=${hLat},${hLng}&travelmode=driving`;
+      window.open(gmapsUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    // Also pan the in-app Leaflet map for visual feedback
+    const map = mapInstanceRef.current;
+    if (map && hLat && hLng) {
+      const bounds = L.latLngBounds([[patientLat, patientLng], [hLat, hLng]]);
+      map.fitBounds(bounds, {
+        padding: [80, 80],
+        animate: !prefersReduced,
+        duration: prefersReduced ? 0 : 1.0
+      });
+
+      const marker = hospitalMarkersRef.current[hospital.hospital_id];
+      if (marker) {
+        marker.openPopup();
       }
     }
 
